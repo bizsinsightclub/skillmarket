@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"; // 무료(OFL) 한글 웹폰트, 자체 호스팅
 import "./globals.css";
 import { getCurrentUser, isEditor } from "@/lib/auth";
 
@@ -13,32 +14,36 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-30 border-b border-black/5 bg-paper/85 backdrop-blur">
-          <nav className="mx-auto flex max-w-[1400px] items-center gap-6 px-4 py-3 text-sm sm:px-8">
-            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-bold">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-ink text-base text-accent">S</span>
+        {/* 떠 있는 유리 내비 (Raycast Store) */}
+        <header className="sticky top-3 z-30 px-3 sm:px-6">
+          <nav className="glass mx-auto flex max-w-[1400px] items-center gap-6 rounded-2xl px-4 py-2.5 text-sm">
+            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-extrabold tracking-tight">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-ink text-base text-accent">S</span>
               스킬마켓
             </Link>
             {user && (
               <>
-                <div className="hidden items-center gap-5 text-black/60 md:flex">
-                  <Link href="/skills" className="hover:text-ink">전체 스킬</Link>
-                  <Link href="/skills?tab=curated" className="hover:text-ink">큐레이티드</Link>
-                  <Link href="/skills?tab=pick" className="hover:text-ink">에디터 픽</Link>
+                <div className="hidden items-center gap-1 font-medium text-black/60 md:flex">
+                  {[["/skills", "전체 스킬"], ["/skills?tab=curated", "큐레이티드"], ["/skills?tab=pick", "에디터 픽"]].map(([href, label]) => (
+                    <Link key={href} href={href} className="rounded-lg px-3 py-1.5 hover:bg-white/70 hover:text-ink">{label}</Link>
+                  ))}
                 </div>
                 <form action="/skills" className="ml-auto hidden w-72 sm:block">
-                  <input name="q" placeholder="어떤 스킬을 찾으세요?" className="w-full rounded-full border border-black/10 px-4 py-2 outline-none focus:border-black/40" />
+                  <input name="q" placeholder="어떤 스킬을 찾으세요?" className="w-full rounded-xl border border-black/5 bg-white/70 px-4 py-2 outline-none placeholder:text-black/40 focus:border-black/25 focus:bg-white" />
                 </form>
                 <div className="ml-auto flex items-center gap-3 sm:ml-0">
-                  {isEditor(user) && <Link href="/editor" className="hidden whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-xs font-semibold sm:inline">검수 대기함</Link>}
-                  <Link href="/me" className="max-w-32 truncate whitespace-nowrap text-black/70 hover:text-ink">{user.name || user.email}</Link>
-                  <Link href="/write" className="whitespace-nowrap rounded-full bg-ink px-4 py-2 font-semibold text-white">올리기</Link>
+                  {isEditor(user) && <Link href="/editor" className="hidden whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-xs font-bold sm:inline">검수 대기함</Link>}
+                  <Link href="/me" className="max-w-32 truncate whitespace-nowrap font-medium text-black/70 hover:text-ink">{user.name || user.email}</Link>
+                  <Link href="/write" className="whitespace-nowrap rounded-xl bg-ink px-4 py-2 font-bold text-white hover:bg-black">올리기</Link>
                 </div>
               </>
             )}
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 sm:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-10 sm:px-8">{children}</main>
+        <footer className="mx-auto w-full max-w-[1400px] px-4 pb-10 text-xs text-black/40 sm:px-8">
+          스킬마켓 · 사내 Claude 스킬 공유 · 서체 Pretendard (SIL OFL)
+        </footer>
       </body>
     </html>
   );

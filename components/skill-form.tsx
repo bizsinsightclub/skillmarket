@@ -19,7 +19,7 @@ export type SkillFormValues = {
   access: string;
 };
 
-const input = "rounded border px-3 py-2";
+const input = "rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30";
 const label = "flex flex-col gap-1 text-sm";
 const hint = "text-xs text-black/50";
 
@@ -58,8 +58,8 @@ export default function SkillForm({
       className="flex max-w-3xl flex-col gap-5"
     >
       {mode === "create" && (
-        <fieldset className="flex flex-col gap-3 rounded border border-black/15 p-4">
-          <legend className="px-1 text-sm font-bold">스킬 파일</legend>
+        <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+          <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">스킬 파일</legend>
           <label className={label}>
             스킬 폴더 zip *
             <input name="zip" type="file" accept=".zip" required className={input} />
@@ -99,8 +99,8 @@ export default function SkillForm({
         <textarea name="body_md" defaultValue={values.body_md} rows={10} className={`${input} font-mono text-sm`} placeholder="언제 쓰는지, 어떻게 쓰는지, 주의할 점" />
       </label>
 
-      <fieldset className="flex flex-col gap-3 rounded border border-black/15 p-4">
-        <legend className="px-1 text-sm font-bold">원작자 크레딧</legend>
+      <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">원작자 크레딧</legend>
         <div className="flex gap-4">
           <label className={`${label} flex-1`}>
             원작자 이름 *
@@ -117,8 +117,8 @@ export default function SkillForm({
         </label>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3 rounded border border-black/15 p-4">
-        <legend className="px-1 text-sm font-bold">스냅샷</legend>
+      <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">스냅샷</legend>
         {snapshots.length > 0 && (
           <div className="flex flex-wrap gap-3">
             {snapshots.map((s) => (
@@ -145,8 +145,8 @@ export default function SkillForm({
         </label>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3 rounded border border-black/15 p-4">
-        <legend className="px-1 text-sm font-bold">공개 범위</legend>
+      <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">공개 범위</legend>
         <div className="flex gap-6 text-sm">
           <label><input type="radio" name="visibility" value="public" checked={visibility === "public"} onChange={() => setVisibility("public")} /> 전사 공개</label>
           <label><input type="radio" name="visibility" value="restricted" checked={visibility === "restricted"} onChange={() => setVisibility("restricted")} /> 지정한 사람만</label>
@@ -160,8 +160,8 @@ export default function SkillForm({
         )}
       </fieldset>
 
-      {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <button disabled={busy} className="self-start rounded bg-black px-6 py-2 text-white disabled:opacity-50">
+      {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <button disabled={busy} className="self-start rounded-xl bg-ink px-6 py-2.5 font-bold text-white disabled:opacity-50">
         {uploading ? "파일 올리는 중…" : pending ? "확인하는 중…" : mode === "create" ? "등록" : "저장"}
       </button>
     </form>

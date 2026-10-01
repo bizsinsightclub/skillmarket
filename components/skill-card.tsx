@@ -8,11 +8,13 @@ export function Cover({ slug, name, category }: { slug: string; name: string; ca
   return (
     <div
       className="flex h-full w-full flex-col justify-center px-6 text-white"
-      style={{ background: `linear-gradient(135deg, hsl(${h} 45% 32%), hsl(${(h + 50) % 360} 55% 18%))` }}
+      style={{
+        background: `radial-gradient(80% 90% at 85% 15%, hsl(${(h + 60) % 360} 70% 60% / 0.55), transparent 60%), linear-gradient(135deg, hsl(${h} 50% 30%), hsl(${(h + 40) % 360} 55% 16%))`,
+      }}
     >
       {/* 위 왼쪽은 배지, 아래 오른쪽은 숫자 자리 → 가운데에 둔다 */}
-      <span className="text-xs font-medium tracking-wide opacity-60">{category}</span>
-      <span className="mt-1 line-clamp-2 break-all text-2xl font-bold leading-tight">{name}</span>
+      <span className="text-xs font-semibold tracking-wide opacity-60">{category}</span>
+      <span className="mt-1 line-clamp-2 break-all text-2xl font-extrabold leading-tight tracking-[-0.02em]">{name}</span>
     </div>
   );
 }
@@ -21,7 +23,7 @@ export function Thumb({ path, slug, name, category, className = "" }: { path: st
   return (
     <div className={`overflow-hidden bg-black/5 ${className}`}>
       {path ? (
-        <img src={`/files/${path}`} alt={`${name} 결과물 미리보기`} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
+        <img src={`/files/${path}`} alt={`${name} 결과물 미리보기`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
       ) : (
         <Cover slug={slug} name={name} category={category} />
       )}
@@ -31,33 +33,41 @@ export function Thumb({ path, slug, name, category, className = "" }: { path: st
 
 export default function SkillCard({ s }: { s: BoardRow }) {
   return (
-    <Link href={`/skills/${s.slug}`} className="group block min-w-0">
+    // 원칙 5: 이미지가 주인공, 메타는 이미지 밖. 호버는 transform 만 (블러 애니메이션 금지)
+    <Link href={`/skills/${s.slug}`} className="group block min-w-0 transition duration-300 hover:-translate-y-1">
       <div className="relative">
-        <Thumb path={s.thumb} slug={s.slug} name={s.name} category={s.category_label} className="aspect-[16/10] rounded-2xl ring-1 ring-black/5" />
+        <Thumb
+          path={s.thumb}
+          slug={s.slug}
+          name={s.name}
+          category={s.category_label}
+          className="aspect-[16/10] rounded-2xl shadow-[0_12px_30px_-18px_rgb(20_20_40/0.45)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[0_20px_40px_-18px_rgb(20_20_40/0.55)]"
+        />
         <div className="absolute left-3 top-3 flex gap-1.5">
-          {s.editor_pick ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-ink">에디터 픽</span> : null}
-          {s.curated && !s.editor_pick ? <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-ink">검수 완료</span> : null}
-          {s.visibility === "restricted" && <span className="rounded-full bg-ink/80 px-2.5 py-0.5 text-xs text-white">비공개</span>}
+          {s.editor_pick ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-ink shadow-sm">✦ 에디터 픽</span> : null}
+          {s.curated && !s.editor_pick ? <span className="glass rounded-full px-2.5 py-0.5 text-xs font-bold">검수 완료</span> : null}
+          {s.visibility === "restricted" && <span className="glass-dark rounded-full px-2.5 py-0.5 text-xs font-medium">비공개</span>}
         </div>
-        <div className="absolute bottom-3 right-3 flex gap-1.5 text-xs font-medium text-white">
-          <span className="rounded-full bg-black/55 px-2 py-0.5 backdrop-blur">↓ {s.installs}</span>
-          <span className="rounded-full bg-black/55 px-2 py-0.5 backdrop-blur">♥ {s.likes}</span>
+        {/* 원칙 6: 이미지 위 수치는 어두운 유리 칩 */}
+        <div className="glass-dark absolute bottom-3 right-3 flex gap-2.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums">
+          <span>↓ {s.installs}</span>
+          <span>♥ {s.likes}</span>
         </div>
       </div>
-      <div className="mt-3 flex items-baseline justify-between gap-3">
-        <h3 className="truncate font-semibold group-hover:underline">{s.name}</h3>
-        <span className="shrink-0 text-xs text-black/45">{s.category_label}</span>
+      <div className="mt-3 flex items-baseline justify-between gap-3 px-0.5">
+        <h3 className="truncate font-bold tracking-[-0.01em] group-hover:underline">{s.name}</h3>
+        <span className="shrink-0 text-xs font-medium text-black/45">{s.category_label}</span>
       </div>
-      <p className="mt-0.5 truncate text-sm text-black/55">{s.summary || " "}</p>
-      <p className="mt-1 text-xs text-black/45">by {s.author_name}</p>
+      <p className="mt-0.5 truncate px-0.5 text-sm text-black/55">{s.summary || " "}</p>
+      <p className="mt-1 px-0.5 text-xs text-black/45">by {s.author_name}</p>
     </Link>
   );
 }
 
 export function SkillGrid({ rows, empty = "아직 등록된 스킬이 없습니다" }: { rows: BoardRow[]; empty?: string }) {
-  if (!rows.length) return <p className="rounded-2xl border border-dashed border-black/15 py-20 text-center text-black/45">{empty}</p>;
+  if (!rows.length) return <p className="glass rounded-2xl py-20 text-center text-black/50">{empty}</p>;
   return (
-    <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {rows.map((r) => <SkillCard key={r.id} s={r} />)}
     </div>
   );

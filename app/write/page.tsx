@@ -8,7 +8,7 @@ export default async function WritePage() {
   const user = await requireUser();
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">스킬 올리기</h1>
+      <h1 className="mb-6 text-3xl font-extrabold tracking-[-0.03em]">스킬 올리기</h1>
       <SkillForm
         mode="create"
         action={createSkill}

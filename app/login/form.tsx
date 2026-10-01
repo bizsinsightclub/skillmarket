@@ -8,8 +8,8 @@ export default function LoginForm({ next }: { next: string }) {
   const codeStep = state.step === "code";
 
   return (
-    <div className="mx-auto mt-16 max-w-md rounded-3xl bg-white p-8 ring-1 ring-black/5">
-      <h1 className="mb-2 text-2xl font-bold">로그인 / 가입</h1>
+    <div className="glass mx-auto mt-16 max-w-md rounded-3xl p-8">
+      <h1 className="mb-2 text-3xl font-extrabold tracking-[-0.03em]">로그인 / 가입</h1>
       <p className="mb-6 text-sm text-black/60">
         samsung.com · cheil.com 메일로 받은 6자리 코드로 로그인합니다. 처음이면 자동으로 가입됩니다.
       </p>
@@ -23,7 +23,7 @@ export default function LoginForm({ next }: { next: string }) {
           readOnly={codeStep}
           required
           autoFocus={!codeStep}
-          className="rounded border px-3 py-2 read-only:bg-black/5"
+          className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30 read-only:bg-black/5"
         />
         {codeStep && (
           <input
@@ -36,11 +36,11 @@ export default function LoginForm({ next }: { next: string }) {
             required
             autoFocus
             autoComplete="one-time-code"
-            className="rounded border px-3 py-2 tracking-widest"
+            className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30 tracking-widest"
           />
         )}
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-        <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50">
+        <button disabled={pending} className="rounded-xl bg-ink px-5 py-2.5 font-bold text-white disabled:opacity-50">
           {codeStep ? "로그인" : "코드 받기"}
         </button>
       </form>

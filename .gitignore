@@ -49,3 +49,8 @@ next-env.d.ts
 .vercel
 .env*
 /.claude/skills/supabase
+
+# Mobbin 레퍼런스 원본(이미지·캐시)은 커밋하지 않는다
+/design/refs/
+/design/sheets/
+/design/cache/

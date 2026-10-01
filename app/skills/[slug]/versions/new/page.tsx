@@ -20,7 +20,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
   const [latest] = await listVersions(db, skill.id);
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold">{skill.name} 새 버전</h1>
+      <h1 className="mb-1 text-3xl font-extrabold tracking-[-0.03em]">{skill.name} 새 버전</h1>
       <p className="mb-6 text-sm text-black/60">
         현재 v{latest.version}
         {skill.curated_version_id ? " · 큐레이티드는 검수를 다시 받기 전까지 기존 승인 버전을 유지합니다" : ""}

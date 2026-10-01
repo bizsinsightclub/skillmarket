@@ -20,7 +20,7 @@ export default async function EditPage({ params }: PageProps<"/skills/[slug]/edi
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">{skill.name} 수정</h1>
+      <h1 className="mb-6 text-3xl font-extrabold tracking-[-0.03em]">{skill.name} 수정</h1>
       <SkillForm
         mode="edit"
         action={updateSkill.bind(null, slug)}

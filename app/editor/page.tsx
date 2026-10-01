@@ -11,8 +11,8 @@ export default async function EditorPage() {
   const pending = await listPending(getDb());
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">검수 대기함</h1>
-      <table className="w-full border-t-2 border-black text-sm">
+      <h1 className="mb-6 text-3xl font-extrabold tracking-[-0.03em]">검수 대기함</h1>
+      <table className="panel w-full overflow-hidden rounded-2xl text-sm">
         <thead className="border-b border-black/20 bg-black/[.03] text-black/60">
           <tr>
             <th className="py-2 text-left font-normal">스킬</th>

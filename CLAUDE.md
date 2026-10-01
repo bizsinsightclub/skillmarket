@@ -4,7 +4,7 @@
 
 사내 구성원이 만든 Claude 스킬(`SKILL.md` 폴더)을 올리고, 찾고, 설치하는 웹서비스. Vercel 공개 호스팅(https://skillmarket-beta.vercel.app), 가입은 사내 메일만.
 기능 레퍼런스: https://skillry.dev (트렌딩/인기 정렬 · 결과물 미리보기 · 설치 수). 결제·구독 기능은 **가져오지 않는다**.
-화면은 **skillry 형 카드 그리드**: 결과물 썸네일(16:10)이 주인공, 이미지 없는 스킬은 이름·분류로 자동 표지(`Cover`). 따뜻한 미색 바탕(`paper`) + 흰 카드 + 라임 강조(`accent`).
+화면은 **skillry 형 카드 그리드**: 결과물 썸네일(16:10)이 주인공, 이미지 없는 스킬은 이름·분류로 자동 표지(`Cover`). 글래스모피즘(고정 메쉬 그라디언트 위 `glass`·`glass-dark`·`panel` 유틸) + Pretendard Variable + 라임 강조(`accent`). **디자인을 고칠 때는 `design/DESIGN.md` 의 원칙을 먼저 읽는다.**
 
 ## 화면
 
@@ -76,7 +76,8 @@
   - Vercel 함수 요청·응답 본문 한도 4.5MB → **업로드는 브라우저가 1회용 서명 URL 로 Storage 에 직접**(`components/direct-upload.ts` → `prepareUpload`), 서버는 `tmp/<user_id>/…` 를 내려받아 검증 후 최종 경로로 다시 저장하고 tmp 삭제.
   - 다운로드·이미지는 가시성 검사 후 Storage 서명 URL 로 302. 데모 HTML 만 함수가 직접 응답(격리 헤더 때문, 그래서 4MB 제한).
 - 메일: `nodemailer`(Gmail SMTP).
-- 스타일: Tailwind. 웹폰트 없음(시스템 폰트).
+- 스타일: Tailwind v4(`app/globals.css` 의 `@utility glass/glass-dark/panel`). 폰트: Pretendard Variable(OFL, npm `pretendard` dynamic subset 자체 호스팅, 외부 CDN 없음).
+- 디자인 레퍼런스 수집: `design/refs.py`(C:/pjt/mobbin 의 Mobbin API 래퍼 재사용). 원본 이미지·캐시는 gitignore.
 - 마크다운: `react-markdown` + `remark-gfm`, `skipHtml`. 원시 HTML 렌더링 플러그인(`rehype-raw`) 금지 — 위험한 URL 은 기본값이 걸러준다.
 
 ## 데이터 모델 (요약 — 정본은 `db/migrations/`, 모두 `app` 스키마)

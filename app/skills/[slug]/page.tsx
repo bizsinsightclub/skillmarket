@@ -18,8 +18,8 @@ const STATUS: Record<string, string> = { pending: "검수 대기 중", approved:
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-8">
-      <h2 className="mb-4 text-lg font-bold">{title}</h2>
+    <section className="panel rounded-3xl p-6 sm:p-8">
+      <h2 className="mb-4 text-lg font-extrabold tracking-[-0.02em]">{title}</h2>
       {children}
     </section>
   );
@@ -67,12 +67,12 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
         {/* 왼쪽: 결과물 미리보기 */}
         <div className="flex min-w-0 flex-col gap-5">
           {images.map((s) => (
-            <a key={s.id} href={`/files/${s.path}`} target="_blank" className="block overflow-hidden rounded-3xl bg-white p-2 ring-1 ring-black/5">
+            <a key={s.id} href={`/files/${s.path}`} target="_blank" className="glass block overflow-hidden rounded-3xl p-2">
               <img src={`/files/${s.path}`} alt={`${skill.name} 결과물`} className="w-full rounded-2xl" />
             </a>
           ))}
           {demo && (
-            <div className="overflow-hidden rounded-3xl bg-white p-2 ring-1 ring-black/5">
+            <div className="glass overflow-hidden rounded-3xl p-2">
               <div className="flex items-center justify-between px-3 py-2 text-sm">
                 <span className="font-semibold">라이브 데모</span>
                 <a href={`/files/${demo.path}`} target="_blank" className="text-black/50 hover:text-ink">새 창으로 ↗</a>
@@ -90,14 +90,14 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
 
         {/* 오른쪽: 정보 패널 */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-3xl bg-white p-7 ring-1 ring-black/5">
+          <div className="glass rounded-3xl p-7">
             <div className="mb-3 flex flex-wrap gap-1.5">
               {skill.editor_pick ? <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽</span> : null}
               {curated && <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold">검수 완료 v{curated.version}</span>}
               {skill.visibility === "restricted" && <span className="rounded-full bg-ink px-3 py-1 text-xs text-white">비공개</span>}
             </div>
             <div className="flex items-start gap-3">
-              <h1 className="mr-auto text-3xl font-bold leading-tight tracking-tight">
+              <h1 className="mr-auto text-3xl font-extrabold leading-tight tracking-[-0.03em]">
                 {skill.name} <span className="align-middle text-sm font-normal text-black/40">v{latest.version}</span>
               </h1>
               <form action={toggleLike.bind(null, skill.slug)}>
@@ -115,8 +115,8 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-2">
-              <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-semibold text-white hover:bg-black" />
-              <a href={`/skills/${skill.slug}/download`} className="rounded-2xl px-4 py-3.5 text-center text-sm font-semibold ring-1 ring-black/15 hover:ring-black/40">
+              <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
+              <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
                 ZIP 받기
               </a>
             </div>
@@ -167,7 +167,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <Link href={`/skills/${skill.slug}/versions/new`} className="rounded-full px-4 py-2 ring-1 ring-black/15 hover:ring-black/40">새 버전</Link>
                 <details className="relative ml-auto">
                   <summary className="cursor-pointer list-none rounded-full px-4 py-2 text-red-600 ring-1 ring-red-200">삭제</summary>
-                  <form action={deleteSkill.bind(null, skill.slug)} className="absolute right-0 z-10 mt-2 w-60 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-black/10">
+                  <form action={deleteSkill.bind(null, skill.slug)} className="glass absolute right-0 z-10 mt-2 w-60 rounded-2xl p-4">
                     <p className="mb-3 text-xs text-black/60">버전·스냅샷·좋아요가 모두 지워집니다.</p>
                     <button className="w-full rounded-full bg-red-600 px-3 py-2 text-white">정말 삭제</button>
                   </form>

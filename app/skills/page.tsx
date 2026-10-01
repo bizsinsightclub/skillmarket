@@ -32,18 +32,18 @@ export default async function SkillsPage({ searchParams }: PageProps<"/skills">)
     return s ? `/skills?${s}` : "/skills";
   };
   const chip = (active: boolean) =>
-    `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm transition ${active ? "bg-ink text-white" : "bg-white text-black/65 ring-1 ring-black/10 hover:text-ink"}`;
+    `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${active ? "bg-ink text-white" : "glass text-black/70 hover:text-ink"}`;
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{q ? `“${q}” 검색 결과` : TABS.find(([k]) => k === tab)![1] + " 스킬"}</h1>
+          <h1 className="text-4xl font-extrabold tracking-[-0.03em]">{q ? `“${q}” 검색 결과` : TABS.find(([k]) => k === tab)![1] + " 스킬"}</h1>
           <p className="mt-1 text-sm text-black/50">{total}개</p>
         </div>
-        <div className="flex gap-1 rounded-full bg-white p-1 ring-1 ring-black/10">
+        <div className="glass flex gap-1 rounded-2xl p-1">
           {TABS.map(([k, label]) => (
-            <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-full px-4 py-1.5 text-sm ${tab === k ? "bg-ink text-white" : "text-black/60 hover:text-ink"}`}>
+            <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-xl px-4 py-1.5 text-sm font-semibold ${tab === k ? "bg-ink text-white" : "text-black/60 hover:text-ink"}`}>
               {label}
             </Link>
           ))}
@@ -57,7 +57,7 @@ export default async function SkillsPage({ searchParams }: PageProps<"/skills">)
         ))}
         <div className="ml-auto flex gap-1 text-sm">
           {SORTS.map(([k, label]) => (
-            <Link key={k} href={href({ sort: k, page: 1 })} className={`rounded-full px-3 py-1.5 ${sort === k ? "font-semibold text-ink" : "text-black/50 hover:text-ink"}`}>
+            <Link key={k} href={href({ sort: k, page: 1 })} className={`rounded-full px-3 py-1.5 ${sort === k ? "font-bold text-ink" : "text-black/50 hover:text-ink"}`}>
               {label}
             </Link>
           ))}
@@ -69,7 +69,7 @@ export default async function SkillsPage({ searchParams }: PageProps<"/skills">)
       {pages > 1 && (
         <nav className="mt-12 flex justify-center gap-1 text-sm">
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-            <Link key={n} href={href({ page: n })} className={`grid h-9 w-9 place-items-center rounded-full ${n === page ? "bg-ink text-white" : "hover:bg-black/5"}`}>{n}</Link>
+            <Link key={n} href={href({ page: n })} className={`grid h-9 w-9 place-items-center rounded-full font-semibold ${n === page ? "bg-ink text-white" : "glass"}`}>{n}</Link>
           ))}
         </nav>
       )}
