@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { authorStats, listBoard, PAGE_SIZE } from "@/lib/queries";
-import BoardTable from "@/components/board-table";
+import { SkillGrid } from "@/components/skill-card";
 
 export default async function AuthorPage({ params, searchParams }: PageProps<"/u/[email]">) {
   const email = decodeURIComponent((await params).email).toLowerCase();
@@ -16,18 +16,24 @@ export default async function AuthorPage({ params, searchParams }: PageProps<"/u
   const pages = Math.ceil(total / PAGE_SIZE);
   return (
     <div>
-      <h1 className="text-2xl font-bold">{stats.name}</h1>
-      <p className="mb-4 text-sm text-black/60">{email}</p>
-      <div className="mb-6 flex gap-8 text-sm">
-        <div><span className="text-2xl font-bold">{stats.skills}</span> 스킬</div>
-        <div><span className="text-2xl font-bold">{stats.likes}</span> 받은 좋아요</div>
-        <div><span className="text-2xl font-bold">{stats.installs}</span> 설치</div>
+      <div className="mb-10 flex flex-wrap items-center gap-6 rounded-3xl bg-white p-8 ring-1 ring-black/5">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-ink text-2xl font-bold text-accent">{stats.name?.[0]}</span>
+        <div className="mr-auto">
+          <h1 className="text-2xl font-bold">{stats.name}</h1>
+          <p className="text-sm text-black/50">{email}</p>
+        </div>
+        {[["스킬", stats.skills], ["받은 좋아요", stats.likes], ["설치", stats.installs]].map(([label, n]) => (
+          <div key={label} className="text-center">
+            <div className="text-2xl font-bold">{n}</div>
+            <div className="text-xs text-black/50">{label}</div>
+          </div>
+        ))}
       </div>
-      <BoardTable rows={rows} firstNumber={total - (page - 1) * PAGE_SIZE} />
+      <SkillGrid rows={rows} />
       {pages > 1 && (
-        <nav className="mt-6 flex gap-1 text-sm">
+        <nav className="mt-12 flex justify-center gap-1 text-sm">
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-            <Link key={n} href={`?page=${n}`} className={`rounded px-2.5 py-1 ${n === page ? "bg-black text-white" : "hover:bg-black/5"}`}>{n}</Link>
+            <Link key={n} href={`?page=${n}`} className={`grid h-9 w-9 place-items-center rounded-full ${n === page ? "bg-ink text-white" : "hover:bg-black/5"}`}>{n}</Link>
           ))}
         </nav>
       )}

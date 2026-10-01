@@ -1,0 +1,78 @@
+import Link from "next/link";
+import { getDb } from "@/lib/db";
+import { requireViewer } from "@/lib/auth";
+import { PAGE_SIZE, listBoard, listCategories, type Sort, type Tab } from "@/lib/queries";
+import { SkillGrid } from "@/components/skill-card";
+
+const TABS: [Tab, string][] = [["all", "전체"], ["curated", "큐레이티드"], ["pick", "에디터 픽"]];
+const SORTS: [Sort, string][] = [["latest", "최신"], ["trending", "트렌딩"], ["popular", "인기"]];
+
+function pick<T extends string>(raw: unknown, allowed: [T, string][], fallback: T): T {
+  return allowed.some(([k]) => k === raw) ? (raw as T) : fallback;
+}
+
+export default async function SkillsPage({ searchParams }: PageProps<"/skills">) {
+  const { viewer } = await requireViewer();
+  const sp = await searchParams;
+  const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
+  const tab = pick(sp.tab, TABS, "all");
+  const sort = pick(sp.sort, SORTS, "latest");
+  const category = str("category");
+  const q = str("q");
+  const page = Math.max(1, Number(str("page")) || 1);
+
+  const db = getDb();
+  const [categories, { rows, total }] = await Promise.all([listCategories(db), listBoard(db, viewer, { tab, sort, category, q, page })]);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const href = (patch: Record<string, string | number>) => {
+    const p = new URLSearchParams({ tab, sort, category, q, page: String(page), ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, String(v)])) });
+    for (const [k, v] of [...p]) if (!v || (k === "tab" && v === "all") || (k === "sort" && v === "latest") || (k === "page" && v === "1")) p.delete(k);
+    const s = p.toString();
+    return s ? `/skills?${s}` : "/skills";
+  };
+  const chip = (active: boolean) =>
+    `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm transition ${active ? "bg-ink text-white" : "bg-white text-black/65 ring-1 ring-black/10 hover:text-ink"}`;
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{q ? `“${q}” 검색 결과` : TABS.find(([k]) => k === tab)![1] + " 스킬"}</h1>
+          <p className="mt-1 text-sm text-black/50">{total}개</p>
+        </div>
+        <div className="flex gap-1 rounded-full bg-white p-1 ring-1 ring-black/10">
+          {TABS.map(([k, label]) => (
+            <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-full px-4 py-1.5 text-sm ${tab === k ? "bg-ink text-white" : "text-black/60 hover:text-ink"}`}>
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-8 flex flex-wrap items-center gap-2">
+        <Link href={href({ category: "", page: 1 })} className={chip(!category)}>전체 분류</Link>
+        {categories.map((c) => (
+          <Link key={c.slug} href={href({ category: c.slug, page: 1 })} className={chip(category === c.slug)}>{c.label}</Link>
+        ))}
+        <div className="ml-auto flex gap-1 text-sm">
+          {SORTS.map(([k, label]) => (
+            <Link key={k} href={href({ sort: k, page: 1 })} className={`rounded-full px-3 py-1.5 ${sort === k ? "font-semibold text-ink" : "text-black/50 hover:text-ink"}`}>
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <SkillGrid rows={rows} empty={q ? "검색 결과가 없습니다" : undefined} />
+
+      {pages > 1 && (
+        <nav className="mt-12 flex justify-center gap-1 text-sm">
+          {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+            <Link key={n} href={href({ page: n })} className={`grid h-9 w-9 place-items-center rounded-full ${n === page ? "bg-ink text-white" : "hover:bg-black/5"}`}>{n}</Link>
+          ))}
+        </nav>
+      )}
+    </div>
+  );
+}

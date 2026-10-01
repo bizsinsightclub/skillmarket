@@ -26,6 +26,7 @@ export type BoardRow = {
   editor_pick: boolean;
   likes: number;
   installs: number;
+  trend: number;
   created_at: Date;
   thumb: string | null;
 };
@@ -35,7 +36,7 @@ export const PAGE_SIZE = 20;
 export async function listBoard(
   db: Db,
   v: Viewer,
-  opts: { tab?: Tab; category?: string; q?: string; sort?: Sort; page?: number; author?: string } = {},
+  opts: { tab?: Tab; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
 ): Promise<{ rows: BoardRow[]; total: number }> {
   const p = new Params();
   const where = [visible(v, p)];
@@ -55,6 +56,7 @@ export async function listBoard(
     : opts.sort === "trending" ? "trend DESC, s.id DESC"
     : "s.id DESC";
   const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const limit = Math.min(PAGE_SIZE, Math.max(1, Math.floor(opts.limit ?? PAGE_SIZE)));
   const whereSql = where.join(" AND ");
 
   const rows = await db.query<BoardRow>(
@@ -68,7 +70,7 @@ export async function listBoard(
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${whereSql}
      ORDER BY ${order}
-     LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
+     LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
     p.values,
   );
   const total = await one<{ n: number }>(db, `SELECT COUNT(*)::int AS n FROM app.skills s WHERE ${whereSql}`, p.values);

@@ -4,16 +4,16 @@
 
 사내 구성원이 만든 Claude 스킬(`SKILL.md` 폴더)을 올리고, 찾고, 설치하는 웹서비스. Vercel 공개 호스팅(https://skillmarket-beta.vercel.app), 가입은 사내 메일만.
 기능 레퍼런스: https://skillry.dev (트렌딩/인기 정렬 · 결과물 미리보기 · 설치 수). 결제·구독 기능은 **가져오지 않는다**.
-화면 형태는 **게시판**: 목록은 표(행) 형태, 스킬 하나 = 게시글 하나.
+화면은 **skillry 형 카드 그리드**: 결과물 썸네일(16:10)이 주인공, 이미지 없는 스킬은 이름·분류로 자동 표지(`Cover`). 따뜻한 미색 바탕(`paper`) + 흰 카드 + 라임 강조(`accent`).
 
 ## 화면
 
-- `/` 게시판 목록 — 표 컬럼: 번호 · 분류 · 제목(+배지: 에디터 픽/검수 완료/비공개) · 원작자 · 좋아요 · 설치 · 등록일.
-  - 상단 탭: 전체 / 큐레이티드 / 에디터 픽. 분류 필터, 검색(제목·요약·태그), 정렬(최신·트렌딩·인기), 페이지네이션(20개).
-  - 썸네일은 제목 옆 작은 이미지(첫 스냅샷)로만.
-- `/skills/[slug]` 게시글 보기 — 제목, 원작자 크레딧, 요약, 스냅샷 갤러리, 데모, 본문, 설치 방법, `SKILL.md` 원문, 버전 이력, 파생 스킬, 좋아요 버튼.
+- `/` 홈 — 소개 배너 + 섹션별 카드: 에디터 픽 · 큐레이티드 · 요즘 뜨는(최근 7일 활동 있는 것만) · 새로 올라온.
+- `/skills` 전체 목록 — 탭(전체/큐레이티드/에디터 픽), 분류 칩, 정렬(최신·트렌딩·인기), 검색(`?q=`, 헤더 검색창), 카드 그리드, 페이지네이션(20개).
+  - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
+- `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
-- `/u/[email]` 원작자 페이지 · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함.
+- `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함.
 
 ## 마켓 구조: 오픈 / 큐레이티드
 
@@ -132,7 +132,7 @@ lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그�
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
-components/           board-table, skill-form, markdown, review-form, direct-upload(브라우저→Storage)
+components/           skill-card(카드·표지·그리드), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
 db/migrations/        *.sql (Postgres, app 스키마)
 ```

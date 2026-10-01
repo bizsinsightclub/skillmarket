@@ -4,7 +4,7 @@ import { logout, updateProfile } from "@/lib/actions";
 export default async function MePage() {
   const user = await requireUser();
   return (
-    <div className="max-w-md">
+    <div className="max-w-md rounded-3xl bg-white p-8 ring-1 ring-black/5">
       <h1 className="mb-2 text-2xl font-bold">내 정보</h1>
       <p className="mb-6 text-sm text-black/60">{user.email}</p>
       <form action={updateProfile} className="flex flex-col gap-4">

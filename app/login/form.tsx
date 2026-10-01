@@ -8,7 +8,7 @@ export default function LoginForm({ next }: { next: string }) {
   const codeStep = state.step === "code";
 
   return (
-    <div className="mx-auto mt-16 max-w-sm">
+    <div className="mx-auto mt-16 max-w-md rounded-3xl bg-white p-8 ring-1 ring-black/5">
       <h1 className="mb-2 text-2xl font-bold">로그인 / 가입</h1>
       <p className="mb-6 text-sm text-black/60">
         samsung.com · cheil.com 메일로 받은 6자리 코드로 로그인합니다. 처음이면 자동으로 가입됩니다.

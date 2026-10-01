@@ -1,23 +1,32 @@
 @import "tailwindcss";
 
-/* 사내 서버는 외부망이 없을 수 있어 웹폰트 대신 시스템 폰트 */
-body {
-  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  background: #fff;
-  color: #171717;
+/* skillry 처럼 따뜻한 미색 바탕 + 흰 카드 + 라임 강조 */
+@theme {
+  --color-paper: #f6f4ef;
+  --color-ink: #141414;
+  --color-accent: #e6f57a;
 }
 
+/* 웹폰트 없이 시스템 폰트 (사내망·속도) */
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+input, select, textarea { background: #fff; }
+
 /* 마크다운 본문 (타이포그래피 플러그인 없이 최소한만) */
-.md { line-height: 1.7; }
+.md { line-height: 1.75; color: rgb(20 20 20 / 0.85); }
 .md > * + * { margin-top: 0.8em; }
-.md h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.4em; }
-.md h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.4em; }
-.md h3 { font-size: 1.1rem; font-weight: 700; margin-top: 1.2em; }
+.md h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.4em; color: var(--color-ink); }
+.md h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.4em; color: var(--color-ink); }
+.md h3 { font-size: 1.1rem; font-weight: 700; margin-top: 1.2em; color: var(--color-ink); }
 .md ul { list-style: disc; padding-left: 1.4em; }
 .md ol { list-style: decimal; padding-left: 1.4em; }
 .md a { text-decoration: underline; }
 .md code { background: rgb(0 0 0 / 0.06); padding: 0.1em 0.3em; border-radius: 4px; font-size: 0.9em; }
-.md pre { background: rgb(0 0 0 / 0.04); padding: 1em; border-radius: 6px; overflow-x: auto; }
+.md pre { background: rgb(0 0 0 / 0.04); padding: 1em; border-radius: 10px; overflow-x: auto; }
 .md pre code { background: none; padding: 0; }
 .md blockquote { border-left: 3px solid rgb(0 0 0 / 0.2); padding-left: 1em; color: rgb(0 0 0 / 0.6); }
 .md table { border-collapse: collapse; }
