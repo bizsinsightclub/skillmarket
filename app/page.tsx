@@ -34,12 +34,13 @@ export default async function HomePage() {
     <div>
       {/* 원칙 7: 큰 제목 + 가운데 유리 검색 (Raycast Store). 뒤의 색 덩어리가 유리를 살린다 */}
       <section className="relative isolate mb-16 overflow-hidden rounded-[2rem] px-6 py-16 text-center sm:py-20">
-        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_80%_at_20%_20%,#d9f25a_0%,transparent_60%),radial-gradient(50%_70%_at_80%_30%,#7cc4ff_0%,transparent_60%),radial-gradient(60%_70%_at_60%_100%,#b69cff_0%,transparent_60%),linear-gradient(135deg,#1b1b22,#2a2440)]" />
+        {/* 은은하게: 어두운 바탕에 아주 옅은 빛 번짐만 (색이 주인공이 되지 않게) */}
+        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(55%_70%_at_15%_10%,rgb(230_245_122/0.14),transparent_70%),radial-gradient(50%_70%_at_90%_20%,rgb(124_196_255/0.12),transparent_70%),radial-gradient(60%_60%_at_60%_110%,rgb(182_156_255/0.12),transparent_70%),linear-gradient(160deg,#1a1a1f,#202027)]" />
         <p className="text-sm font-semibold text-accent">사내 Claude 스킬 마켓</p>
         <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-extrabold leading-[1.15] tracking-[-0.03em] text-white sm:text-6xl">
-          동료가 만든 스킬,<br />바로 가져다 쓰세요
+          동료들의 스킬을<br />함께 쓰고, 함께 키워요
         </h1>
-        <p className="mx-auto mt-5 max-w-xl text-white/75">결과물 미리보기로 고르고, 명령 한 줄로 설치합니다. 내가 만든 스킬도 올려 나눠 보세요.</p>
+        <p className="mx-auto mt-5 max-w-xl text-white/70">결과물 미리보기로 맞는 스킬을 찾고, 명령 한 줄로 설치하세요. 내가 만든 스킬도 원작자 이름과 함께 나눌 수 있어요.</p>
         <form action="/skills" className="glass mx-auto mt-9 flex max-w-xl items-center gap-2 rounded-2xl p-2">
           <input name="q" placeholder="회의록, 보고서 덱, 랜딩 페이지…" className="min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-base outline-none placeholder:text-black/45" />
           <button className="shrink-0 rounded-xl bg-ink px-5 py-3 font-bold text-white">검색</button>

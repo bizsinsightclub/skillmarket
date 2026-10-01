@@ -16,17 +16,17 @@ body {
   font-feature-settings: "ss06"; /* Pretendard: 숫자·영문 가독성 */
 }
 
-/* 원칙 2: 유리 밑에 깔리는 고정 메쉬 그라디언트. radial-gradient 라 블러 비용 없음 */
+/* 원칙 2: 유리 밑에 깔리는 고정 메쉬 그라디언트. 은은하게(불투명도 0.2 안팎) — 색이 눈에 띄면 안 된다 */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(40vw 40vw at 8% 4%, rgb(230 245 122 / 0.55), transparent 70%),
-    radial-gradient(38vw 38vw at 92% 10%, rgb(154 215 255 / 0.5), transparent 70%),
-    radial-gradient(45vw 45vw at 78% 92%, rgb(201 182 255 / 0.45), transparent 70%),
-    radial-gradient(36vw 36vw at 12% 88%, rgb(255 201 168 / 0.45), transparent 70%),
+    radial-gradient(40vw 40vw at 8% 4%, rgb(230 245 122 / 0.22), transparent 70%),
+    radial-gradient(38vw 38vw at 92% 10%, rgb(154 215 255 / 0.18), transparent 70%),
+    radial-gradient(45vw 45vw at 78% 92%, rgb(201 182 255 / 0.16), transparent 70%),
+    radial-gradient(36vw 36vw at 12% 88%, rgb(255 201 168 / 0.16), transparent 70%),
     var(--color-paper);
 }
 

@@ -9,7 +9,7 @@ export function Cover({ slug, name, category }: { slug: string; name: string; ca
     <div
       className="flex h-full w-full flex-col justify-center px-6 text-white"
       style={{
-        background: `radial-gradient(80% 90% at 85% 15%, hsl(${(h + 60) % 360} 70% 60% / 0.55), transparent 60%), linear-gradient(135deg, hsl(${h} 50% 30%), hsl(${(h + 40) % 360} 55% 16%))`,
+        background: `radial-gradient(80% 90% at 85% 15%, hsl(${(h + 60) % 360} 40% 60% / 0.18), transparent 65%), linear-gradient(135deg, hsl(${h} 28% 28%), hsl(${(h + 30) % 360} 25% 17%))`,
       }}
     >
       {/* 위 왼쪽은 배지, 아래 오른쪽은 숫자 자리 → 가운데에 둔다 */}
