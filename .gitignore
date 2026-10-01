@@ -54,3 +54,5 @@ next-env.d.ts
 /design/refs/
 /design/sheets/
 /design/cache/
+/design/refs.log
+/design/refs-index.txt
