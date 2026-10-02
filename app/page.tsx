@@ -5,12 +5,12 @@ import { listBoard } from "@/lib/queries";
 import { SkillGrid, byline } from "@/components/skill-card";
 import PickSpotlight from "@/components/pick-spotlight";
 
-function Section({ title, sub, href, children }: { title: string; sub?: string; href: string; children: React.ReactNode }) {
+function Section({ title, sub, href, lens = false, children }: { title: string; sub?: string; href: string; lens?: boolean; children: React.ReactNode }) {
   return (
     <section className="mt-14 first:mt-0">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-[-0.02em]">{title}</h2>
+          <h2 className="flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em]">{lens && <span className="h-2.5 w-2.5 rounded-full bg-lens" />}{title}</h2>
           {sub && <p className="mt-1 text-sm text-black/50">{sub}</p>}
         </div>
         <Link href={href} className="glass shrink-0 rounded-full px-4 py-1.5 text-sm font-medium text-black/70 hover:text-ink">모두 보기 →</Link>
@@ -67,7 +67,7 @@ export default async function HomePage() {
         <SkillGrid rows={latest.rows} empty="아직 등록된 스킬이 없습니다. 첫 스킬을 올려 보세요!" />
       </Section>
       {experts.total > 0 && (
-        <Section title="전문가 렌즈" sub="The Lens 에서 쓰는 분야별 전문가 관점" href="/experts">
+        <Section title="전문가 렌즈" sub="The Lens 에서 쓰는 분야별 전문가 관점" href="/experts" lens>
           <SkillGrid rows={experts.rows} />
         </Section>
       )}

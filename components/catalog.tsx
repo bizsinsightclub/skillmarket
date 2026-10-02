@@ -37,8 +37,9 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
     const s = p.toString();
     return s ? `${base}?${s}` : base;
   };
+  const on = kind === "lens" ? "bg-lens text-white" : "bg-ink text-white"; // 전문가 탭은 The Lens 퍼플로 구분
   const chip = (active: boolean) =>
-    `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${active ? "bg-ink text-white" : "glass text-black/70 hover:text-ink"}`;
+    `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${active ? on : "glass text-black/70 hover:text-ink"}`;
 
   return (
     <div>
@@ -54,10 +55,10 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
         </div>
         {!onlyPicks && (
           <div className="flex items-center gap-2">
-          {kind && <Link href={UPLOAD[kind][0]} className="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white hover:bg-black">{UPLOAD[kind][1]}</Link>}
+          {kind && <Link href={UPLOAD[kind][0]} className={`rounded-xl px-4 py-2 text-sm font-bold hover:opacity-90 ${on}`}>{UPLOAD[kind][1]}</Link>}
           <div className="glass flex gap-1 rounded-2xl p-1">
             {TABS.map(([k, label]) => (
-              <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-xl px-4 py-1.5 text-sm font-semibold ${tab === k ? "bg-ink text-white" : "text-black/60 hover:text-ink"}`}>
+              <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-xl px-4 py-1.5 text-sm font-semibold ${tab === k ? on : "text-black/60 hover:text-ink"}`}>
                 {label}
               </Link>
             ))}
@@ -73,7 +74,7 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
         ))}
         <div className="ml-auto flex gap-1 text-sm">
           {sorts.map(([k, label]) => (
-            <Link key={k} href={href({ sort: k, page: 1 })} className={`rounded-full px-3 py-1.5 ${sort === k ? "font-bold text-ink" : "text-black/50 hover:text-ink"}`}>
+            <Link key={k} href={href({ sort: k, page: 1 })} className={`rounded-full px-3 py-1.5 ${sort === k ? `font-bold ${kind === "lens" ? "text-lens-deep" : "text-ink"}` : "text-black/50 hover:text-ink"}`}>
               {label}
             </Link>
           ))}
@@ -85,7 +86,7 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
       {pages > 1 && (
         <nav className="mt-12 flex justify-center gap-1 text-sm">
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-            <Link key={n} href={href({ page: n })} className={`grid h-9 w-9 place-items-center rounded-full font-semibold ${n === page ? "bg-ink text-white" : "glass"}`}>{n}</Link>
+            <Link key={n} href={href({ page: n })} className={`grid h-9 w-9 place-items-center rounded-full font-semibold ${n === page ? on : "glass"}`}>{n}</Link>
           ))}
         </nav>
       )}

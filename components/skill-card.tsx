@@ -39,6 +39,7 @@ export function Thumb({ path, slug, name, category, className = "" }: { path: st
 }
 
 export default function SkillCard({ s }: { s: BoardRow }) {
+  const lens = s.post_type === "lens"; // 전문가 렌즈는 The Lens 퍼플로 구분
   return (
     // 원칙 5: 이미지가 주인공, 메타는 이미지 밖. 호버는 transform 만 (블러 애니메이션 금지)
     <Link href={`/skills/${s.slug}`} className="group block min-w-0 transition duration-300 hover:-translate-y-1">
@@ -48,7 +49,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
           slug={s.slug}
           name={s.name}
           category={s.category_label}
-          className="aspect-[16/10] rounded-2xl shadow-[0_12px_30px_-18px_rgb(20_20_40/0.45)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[0_20px_40px_-18px_rgb(20_20_40/0.55)]"
+          className={`aspect-[16/10] rounded-2xl shadow-[0_12px_30px_-18px_rgb(20_20_40/0.45)] transition-shadow duration-300 group-hover:shadow-[0_20px_40px_-18px_rgb(20_20_40/0.55)] ${lens ? "ring-2 ring-lens-2/70" : "ring-1 ring-black/5"}`}
         />
         <div className="absolute left-3 top-3 flex gap-1.5">
           {s.picked ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-ink shadow-sm">✦ 에디터 픽</span> : null}
@@ -62,10 +63,13 @@ export default function SkillCard({ s }: { s: BoardRow }) {
       </div>
       <div className="mt-3 flex items-baseline justify-between gap-3 px-0.5">
         <h3 className="truncate font-bold tracking-[-0.01em] group-hover:underline">{s.name}</h3>
-        <span className="shrink-0 text-xs font-medium text-black/45">{s.category_label}</span>
+        <span className={`flex shrink-0 items-center gap-1 text-xs font-medium ${lens ? "text-lens-deep" : "text-black/45"}`}>
+          {lens && <span className="h-1.5 w-1.5 rounded-full bg-lens" />}
+          {s.category_label}
+        </span>
       </div>
       <p className="mt-0.5 truncate px-0.5 text-sm text-black/55">{s.summary || " "}</p>
-      <p className="mt-1 truncate px-0.5 text-xs text-black/45">{byline(s)}</p>
+      <p className={`mt-1 truncate px-0.5 text-xs ${lens ? "text-lens-deep/80" : "text-black/45"}`}>{byline(s)}</p>
     </Link>
   );
 }

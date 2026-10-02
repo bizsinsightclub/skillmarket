@@ -124,16 +124,16 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </div>
             {skill.summary && <p className="mt-3 text-black/65">{skill.summary}</p>}
             {isLens && (
-              <div className="mt-4 rounded-2xl bg-white/70 p-4 text-sm ring-1 ring-black/5">
-                <p className="font-semibold">{skill.basis} 기반</p>
+              <div className="mt-4 rounded-2xl bg-lens-bg p-4 text-sm text-lens-ink ring-1 ring-lens-2/40">
+                <p className="flex items-center gap-2 font-semibold text-lens-deep"><span className="h-2 w-2 rounded-full bg-lens" />{skill.basis} 기반</p>
                 {bands.length > 0 && (
                   <ol className="mt-3 flex flex-wrap gap-1.5">
                     {bands.map((b, i) => (
-                      <li key={b} className="rounded-full bg-ink px-2.5 py-1 text-xs font-medium text-white">{i + 1}. {b}</li>
+                      <li key={b} className="rounded-full bg-lens px-2.5 py-1 text-xs font-medium text-white">{i + 1}. {b}</li>
                     ))}
                   </ol>
                 )}
-                <p className="mt-3 text-xs text-black/50">공개된 방법론을 분석 기준으로 삼은 렌즈입니다. 인물을 흉내 내거나 그 사람의 견해를 대변하지 않습니다.</p>
+                <p className="mt-3 text-xs text-lens-ink/55">공개된 방법론을 분석 기준으로 삼은 렌즈입니다. 인물을 흉내 내거나 그 사람의 견해를 대변하지 않습니다.</p>
               </div>
             )}
 
@@ -154,7 +154,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </div>
             ) : isLens ? (
               <div className="mt-6 grid grid-cols-2 gap-2">
-                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-ink px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-black">렌즈 파일 받기</a>
+                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-lens px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-lens-deep">렌즈 파일 받기</a>
                 <CopyButton text={lensPrompt} label="프롬프트 복사" className="rounded-2xl bg-white/80 px-4 py-3.5 text-sm font-bold ring-1 ring-black/10 hover:bg-white" />
               </div>
             ) : (

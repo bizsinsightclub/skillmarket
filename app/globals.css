@@ -5,6 +5,12 @@
   --color-paper: #f4f2ee;
   --color-ink: #121214;
   --color-accent: #e6f57a;
+  /* 전문가 탭(The Lens) 전용: The Lens 브랜드 토큰 그대로 (magilite static/theme.css) */
+  --color-lens: #7c5cfc;
+  --color-lens-2: #a78bfa;
+  --color-lens-deep: #5b3fd6;
+  --color-lens-bg: #efe9fb;
+  --color-lens-ink: #2b2440;
   --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
 }
 

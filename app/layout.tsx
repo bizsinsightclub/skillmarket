@@ -27,7 +27,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <>
                 <div className="hidden items-center gap-1 font-medium text-black/60 md:flex">
                   {[["/skills", "스킬"], ["/plugins", "플러그인·MCP"], ["/experts", "전문가"], ["/picks", "에디터 픽"]].map(([href, label]) => (
-                    <Link key={href} href={href} className="rounded-lg px-3 py-1.5 hover:bg-white/70 hover:text-ink">{label}</Link>
+                    <Link key={href} href={href} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${href === "/experts" ? "text-lens-deep hover:bg-lens-bg" : "hover:bg-white/70 hover:text-ink"}`}>
+                      {href === "/experts" && <span className="h-1.5 w-1.5 rounded-full bg-lens" />}
+                      {label}
+                    </Link>
                   ))}
                 </div>
                 {/* 유리 위에서도 입력칸임이 분명하게: 불투명 흰 바탕 + 또렷한 테두리 + 돋보기 */}
