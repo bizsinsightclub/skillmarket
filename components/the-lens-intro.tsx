@@ -2,7 +2,7 @@ import Link from "next/link";
 
 // 전문가 탭 상단: The Lens(C:/pjt/magilite) 소개 + 소개 영상. 사실 근거는 magilite README·CLAUDE.md.
 // 색은 The Lens 브랜드(라일락 + 퍼플)로 다른 탭(라임)과 구분한다.
-// 영상 교체는 public/media/the-lens-intro.mp4 (+ 포스터 jpg) 파일만 바꾸면 된다.
+// 영상은 Storage uploads/site/ 에 있고 /media/[name] 이 로그인 확인 후 넘긴다(공개 저장소에 넣지 않음).
 export default function TheLensIntro() {
   return (
     <section className="relative isolate mb-12 overflow-hidden rounded-[2rem] bg-[radial-gradient(60%_80%_at_95%_0%,rgb(167_139_250/0.35),transparent_70%),radial-gradient(50%_70%_at_0%_100%,rgb(124_92_252/0.18),transparent_70%),linear-gradient(135deg,#f3eefd,#e6dcfd)] p-5 text-lens-ink ring-1 ring-lens-2/30 sm:p-8">

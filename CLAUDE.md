@@ -35,7 +35,7 @@
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
      - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 검수대기함(에디터)/알림함(일반) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플). 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
-     - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상 `public/media/the-lens-intro.mp4`(원본: Expert_Interview_Agent_v5_draft.mp4, 교체 시 파일만 바꾼다).
+     - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
    - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
 
 1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다.
