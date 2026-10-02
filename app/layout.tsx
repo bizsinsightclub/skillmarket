@@ -3,6 +3,7 @@ import Link from "next/link";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"; // 무료(OFL) 한글 웹폰트, 자체 호스팅
 import "./globals.css";
 import { getCurrentUser, isEditor } from "@/lib/auth";
+import CheilLogo from "@/components/cheil-logo";
 
 export const metadata: Metadata = {
   title: "스킬마켓",
@@ -17,8 +18,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/* 떠 있는 유리 내비 (Raycast Store) */}
         <header className="sticky top-3 z-30 px-3 sm:px-6">
           <nav className="glass mx-auto flex max-w-[1400px] items-center gap-6 rounded-2xl px-4 py-2.5 text-sm">
-            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-extrabold tracking-tight">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-ink text-base text-accent">S</span>
+            <Link href="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-lg font-extrabold tracking-tight">
+              <CheilLogo className="h-[18px] w-auto" />
+              <span aria-hidden className="h-4 w-px bg-black/20" />
               스킬마켓
             </Link>
             {user && (
