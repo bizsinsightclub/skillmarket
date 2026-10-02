@@ -29,13 +29,21 @@ test("비공개 스킬: 소유자·허용 이메일·에디터만 목록에서 �
   assert.equal((await listBoard(db, other)).total, 1);
 });
 
-test("큐레이티드 탭: 승인된 공개 스킬만, 비공개는 승인돼도 제외", async () => {
+test("에디터 픽 탭: 승인된 공개 글만, 비공개는 승인돼도 제외", async () => {
   const db = await testDb(SEED);
-  await db.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = id");
-  assert.deepEqual(await slugs(db, owner, "curated"), ["pub"]);
   assert.deepEqual(await slugs(db, owner, "pick"), []);
-  await db.query("UPDATE app.skills SET editor_pick = true");
+  await db.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = id");
   assert.deepEqual(await slugs(db, owner, "pick"), ["pub"]);
+});
+
+test("스킬과 링크형(플러그인·MCP)은 따로 나온다", async () => {
+  const db = await testDb(SEED);
+  await db.query(`INSERT INTO app.skills (id, slug, name, author_name, author_email, owner_id, category, maker, install_cmd) OVERRIDING SYSTEM VALUE
+                  VALUES (3, 'plug', '플러그인', 'A', 'owner@samsung.com', 1, 'plugin', 'X', '/plugin install x')`);
+  const kinds = async (kind: "skill" | "link") => (await listBoard(db, other, { kind })).rows.map((r) => r.slug).sort();
+  assert.deepEqual(await kinds("skill"), ["pub"]);
+  assert.deepEqual(await kinds("link"), ["plug"]);
+  assert.equal((await listBoard(db, other, { kind: "link" })).total, 1);
 });
 
 test("검색어의 % _ 는 문자 그대로, 대소문자 무시", async () => {

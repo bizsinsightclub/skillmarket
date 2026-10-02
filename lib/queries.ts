@@ -10,8 +10,9 @@ function visible(v: Viewer, p: Params) {
            OR EXISTS (SELECT 1 FROM app.skill_access a WHERE a.skill_id = s.id AND a.email = ${p.add(v.email)}))`;
 }
 
-export type Tab = "all" | "curated" | "pick";
-export type Sort = "latest" | "trending" | "popular";
+export type Tab = "all" | "pick"; // pick = 에디터 픽(에디터가 승인한 것)
+export type Sort = "latest" | "trending" | "popular" | "picked"; // picked = 최근에 에디터 픽이 된 순
+export type Kind = "skill" | "link"; // link = 플러그인·MCP 같은 링크형 글 (categories.needs_zip = false)
 
 export type BoardRow = {
   id: number;
@@ -23,8 +24,7 @@ export type BoardRow = {
   author_email: string;
   maker: string;
   visibility: "public" | "restricted";
-  curated: boolean;
-  editor_pick: boolean;
+  picked: boolean; // 에디터 픽
   likes: number;
   installs: number;
   trend: number;
@@ -37,14 +37,14 @@ export const PAGE_SIZE = 20;
 export async function listBoard(
   db: Db,
   v: Viewer,
-  opts: { tab?: Tab; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
+  opts: { tab?: Tab; kind?: Kind; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
 ): Promise<{ rows: BoardRow[]; total: number }> {
   const p = new Params();
   const where = [visible(v, p)];
 
-  // 큐레이티드·에디터 픽 탭은 비공개 스킬 제외
-  if (opts.tab === "curated") where.push("s.curated_version_id IS NOT NULL AND s.visibility = 'public'");
-  if (opts.tab === "pick") where.push("s.editor_pick AND s.curated_version_id IS NOT NULL AND s.visibility = 'public'");
+  // 에디터 픽 탭은 비공개 스킬 제외
+  if (opts.tab === "pick") where.push("s.curated_version_id IS NOT NULL AND s.visibility = 'public'");
+  if (opts.kind) where.push(opts.kind === "link" ? "NOT c.needs_zip" : "c.needs_zip");
   if (opts.category) where.push(`s.category = ${p.add(opts.category)}`);
   if (opts.author) where.push(`s.author_email = ${p.add(opts.author)}`);
   if (opts.q?.trim()) {
@@ -55,6 +55,7 @@ export async function listBoard(
   const order =
     opts.sort === "popular" ? "likes DESC, s.id DESC"
     : opts.sort === "trending" ? "trend DESC, s.id DESC"
+    : opts.sort === "picked" ? "picked_at DESC NULLS LAST, s.id DESC"
     : "s.id DESC";
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   const limit = Math.min(PAGE_SIZE, Math.max(1, Math.floor(opts.limit ?? PAGE_SIZE)));
@@ -62,7 +63,9 @@ export async function listBoard(
 
   const rows = await db.query<BoardRow>(
     `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker,
-            s.visibility, (s.curated_version_id IS NOT NULL) AS curated, s.editor_pick, s.created_at,
+            s.visibility, (s.curated_version_id IS NOT NULL) AS picked, s.created_at,
+            (SELECT MAX(r.created_at) FROM app.curation_reviews r
+              WHERE r.skill_id = s.id AND r.version_id = s.curated_version_id AND r.decision = 'approved') AS picked_at,
             (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS likes,
             (SELECT COUNT(*)::int FROM app.installs i WHERE i.skill_id = s.id) AS installs,
             (SELECT COUNT(*)::int FROM app.installs i WHERE i.skill_id = s.id AND i.created_at > now() - interval '7 days')
@@ -74,12 +77,13 @@ export async function listBoard(
      LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
     p.values,
   );
-  const total = await one<{ n: number }>(db, `SELECT COUNT(*)::int AS n FROM app.skills s WHERE ${whereSql}`, p.values);
+  const total = await one<{ n: number }>(db, `SELECT COUNT(*)::int AS n FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE ${whereSql}`, p.values);
   return { rows, total: total!.n };
 }
 
-export function listCategories(db: Db) {
-  return db.query<{ slug: string; label: string; needs_zip: boolean }>("SELECT slug, label, needs_zip FROM app.categories ORDER BY sort_order");
+export async function listCategories(db: Db, kind?: Kind) {
+  const all = await db.query<{ slug: string; label: string; needs_zip: boolean }>("SELECT slug, label, needs_zip FROM app.categories ORDER BY sort_order");
+  return kind ? all.filter((c) => c.needs_zip === (kind === "skill")) : all;
 }
 
 export type Skill = {
@@ -101,8 +105,7 @@ export type Skill = {
   based_on_skill_id: number | null;
   visibility: "public" | "restricted";
   curation_status: "none" | "pending" | "approved" | "rejected";
-  curated_version_id: number | null;
-  editor_pick: boolean;
+  curated_version_id: number | null; // 있으면 에디터 픽
   created_at: Date;
   updated_at: Date;
 };

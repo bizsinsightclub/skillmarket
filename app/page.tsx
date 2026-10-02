@@ -23,11 +23,12 @@ function Section({ title, sub, href, children }: { title: string; sub?: string; 
 export default async function HomePage() {
   const { viewer } = await requireViewer();
   const db = getDb();
-  const [picks, curated, trending, latest] = await Promise.all([
-    listBoard(db, viewer, { tab: "pick", sort: "popular", limit: 12 }),
-    listBoard(db, viewer, { tab: "curated", sort: "popular", limit: 8 }),
-    listBoard(db, viewer, { sort: "trending", limit: 8 }),
-    listBoard(db, viewer, { limit: 8 }),
+  const [picks, trending, latest, plugins] = await Promise.all([
+    // 최근에 에디터 픽이 된 순 → 새로 검수 통과한 스킬이 조명 앞쪽에 온다
+    listBoard(db, viewer, { tab: "pick", sort: "picked", limit: 12 }),
+    listBoard(db, viewer, { kind: "skill", sort: "trending", limit: 8 }),
+    listBoard(db, viewer, { kind: "skill", limit: 8 }),
+    listBoard(db, viewer, { kind: "link", sort: "popular", limit: 4 }),
   ]);
   const hot = trending.rows.filter((r) => r.trend > 0); // 최근 활동이 있는 것만 (없으면 최신 목록과 똑같아짐)
 
@@ -56,11 +57,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {curated.total > 0 && (
-        <Section title="큐레이티드" sub="검수를 통과한 스킬·플러그인" href="/skills?tab=curated&sort=popular">
-          <SkillGrid rows={curated.rows} />
-        </Section>
-      )}
       {hot.length > 0 && (
         <Section title="🔥 요즘 뜨는 스킬" sub="최근 7일 설치·좋아요 기준" href="/skills?sort=trending">
           <SkillGrid rows={hot} />
@@ -69,6 +65,11 @@ export default async function HomePage() {
       <Section title="새로 올라온 스킬" href="/skills">
         <SkillGrid rows={latest.rows} empty="아직 등록된 스킬이 없습니다. 첫 스킬을 올려 보세요!" />
       </Section>
+      {plugins.total > 0 && (
+        <Section title="추천 플러그인·MCP" sub="동료들이 추천하는 Claude Code 플러그인과 MCP 서버" href="/plugins">
+          <SkillGrid rows={plugins.rows} />
+        </Section>
+      )}
     </div>
   );
 }

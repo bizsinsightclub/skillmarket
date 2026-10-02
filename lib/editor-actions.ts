@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb } from "./db";
 import { requireViewer } from "./auth";
-import { CurationError, review, setPick, uncurate } from "./curation";
+import { CurationError, review, unpick } from "./curation";
 
 async function requireEditor() {
   const { user, viewer } = await requireViewer();
@@ -36,16 +36,9 @@ export async function reviewAction(_prev: { error?: string }, form: FormData): P
   return {};
 }
 
-export async function pickAction(form: FormData) {
-  const user = await requireEditor();
-  const { skillId, versionId, slug } = ids(form);
-  await setPick(getDb(), { skillId, versionId, editorId: user.id, on: form.get("on") === "1" });
-  done(slug);
-}
-
-export async function uncurateAction(form: FormData) {
+export async function unpickAction(form: FormData) {
   await requireEditor();
   const { skillId, slug } = ids(form);
-  await uncurate(getDb(), skillId);
+  await unpick(getDb(), skillId);
   done(slug);
 }

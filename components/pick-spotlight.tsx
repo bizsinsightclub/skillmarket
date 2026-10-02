@@ -18,7 +18,8 @@ export type Pick = {
 
 const INTERVAL_MS = 6000;
 
-// 홈 가운데: 에디터 픽을 하나씩 돌아가며 조명. 호버·포커스·탭 숨김·'동작 줄이기' 설정이면 멈춘다.
+// 홈 가운데: 에디터 픽(최근 선정 순 — 새로 검수 통과한 스킬이 앞에)을 하나씩 돌아가며 조명.
+// 호버·포커스·탭 숨김·'동작 줄이기' 설정이면 멈춘다.
 export default function PickSpotlight({ picks }: { picks: Pick[] }) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -72,7 +73,7 @@ export default function PickSpotlight({ picks }: { picks: Pick[] }) {
           </p>
           <div className="mt-6 flex flex-wrap gap-2 text-sm">
             <Link href={`/skills/${p.slug}`} className="rounded-xl bg-accent px-5 py-2.5 font-bold text-ink">자세히 보기</Link>
-            <Link href="/skills?tab=pick" className="rounded-xl bg-white/10 px-5 py-2.5 font-bold ring-1 ring-white/20 hover:bg-white/15">에디터 픽 전체</Link>
+            <Link href="/picks" className="rounded-xl bg-white/10 px-5 py-2.5 font-bold ring-1 ring-white/20 hover:bg-white/15">에디터 픽 전체</Link>
           </div>
         </div>
       </div>

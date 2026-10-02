@@ -2,7 +2,8 @@ import { one, type Db } from "./db.ts";
 
 export class CurationError extends Error {}
 
-// 에디터가 검토한 그 버전(versionId)만 승인한다. 검토 중 새 버전이 올라와도 영향 없음.
+// 에디터 픽 = 에디터가 승인한 것. 승인은 에디터가 검토한 그 버전(versionId)으로 고정된다.
+// 검토 중 새 버전이 올라와도 영향 없음.
 export async function review(
   db: Db,
   p: { skillId: number; versionId: number; editorId: number; decision: "approved" | "rejected"; note: string },
@@ -18,23 +19,13 @@ export async function review(
     if (p.decision === "approved") {
       await t.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = $1 WHERE id = $2", [p.versionId, p.skillId]);
     } else {
-      // 반려돼도 이전에 승인된 버전은 큐레이티드에 그대로 남는다
+      // 반려돼도 이전에 승인된 버전은 에디터 픽에 그대로 남는다
       await t.query("UPDATE app.skills SET curation_status = 'rejected' WHERE id = $1", [p.skillId]);
     }
   });
 }
 
-// 에디터 픽 켜기: 아직 큐레이티드가 아니면 지정한 버전을 함께 승인
-export async function setPick(db: Db, p: { skillId: number; versionId: number; editorId: number; on: boolean }) {
-  await db.tx(async (t) => {
-    if (p.on) {
-      const s = await one<{ curated_version_id: number | null }>(t, "SELECT curated_version_id FROM app.skills WHERE id = $1", [p.skillId]);
-      if (!s?.curated_version_id) await review(t, { ...p, decision: "approved", note: "에디터 픽 지정" });
-    }
-    await t.query("UPDATE app.skills SET editor_pick = $1 WHERE id = $2", [p.on, p.skillId]);
-  });
-}
-
-export async function uncurate(db: Db, skillId: number) {
-  await db.query("UPDATE app.skills SET curated_version_id = NULL, editor_pick = false, curation_status = 'none' WHERE id = $1", [skillId]);
+// 에디터 픽에서 내리기
+export async function unpick(db: Db, skillId: number) {
+  await db.query("UPDATE app.skills SET curated_version_id = NULL, curation_status = 'none' WHERE id = $1", [skillId]);
 }

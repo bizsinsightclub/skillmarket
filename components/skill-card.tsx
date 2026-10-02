@@ -44,8 +44,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
           className="aspect-[16/10] rounded-2xl shadow-[0_12px_30px_-18px_rgb(20_20_40/0.45)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[0_20px_40px_-18px_rgb(20_20_40/0.55)]"
         />
         <div className="absolute left-3 top-3 flex gap-1.5">
-          {s.editor_pick ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-ink shadow-sm">✦ 에디터 픽</span> : null}
-          {s.curated && !s.editor_pick ? <span className="glass rounded-full px-2.5 py-0.5 text-xs font-bold">검수 완료</span> : null}
+          {s.picked ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-ink shadow-sm">✦ 에디터 픽</span> : null}
           {s.visibility === "restricted" && <span className="glass-dark rounded-full px-2.5 py-0.5 text-xs font-medium">비공개</span>}
         </div>
         {/* 원칙 6: 이미지 위 수치는 어두운 유리 칩 */}

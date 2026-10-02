@@ -26,12 +26,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             {user && (
               <>
                 <div className="hidden items-center gap-1 font-medium text-black/60 md:flex">
-                  {[["/skills", "전체 스킬"], ["/skills?tab=curated", "큐레이티드"], ["/skills?tab=pick", "에디터 픽"]].map(([href, label]) => (
+                  {[["/skills", "스킬"], ["/plugins", "플러그인·MCP"], ["/picks", "에디터 픽"]].map(([href, label]) => (
                     <Link key={href} href={href} className="rounded-lg px-3 py-1.5 hover:bg-white/70 hover:text-ink">{label}</Link>
                   ))}
                 </div>
-                <form action="/skills" className="ml-auto hidden w-72 sm:block">
-                  <input name="q" placeholder="어떤 스킬을 찾으세요?" className="w-full rounded-xl border border-black/5 bg-white/70 px-4 py-2 outline-none placeholder:text-black/40 focus:border-black/25 focus:bg-white" />
+                {/* 유리 위에서도 입력칸임이 분명하게: 불투명 흰 바탕 + 또렷한 테두리 + 돋보기 */}
+                <form action="/skills" role="search" className="relative ml-auto hidden w-72 sm:block">
+                  <svg aria-hidden viewBox="0 0 20 20" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="9" r="6" /><path d="m14 14 4 4" strokeLinecap="round" /></svg>
+                  <input name="q" aria-label="스킬 검색" placeholder="어떤 스킬을 찾으세요?" className="w-full rounded-xl border border-black/15 bg-white py-2 pl-9 pr-3 shadow-[inset_0_1px_2px_rgb(0_0_0/0.04)] outline-none placeholder:text-black/50 focus:border-black/40 focus:ring-2 focus:ring-accent" />
                 </form>
                 <div className="ml-auto flex items-center gap-3 sm:ml-0">
                   {isEditor(user) && <Link href="/editor" className="hidden whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-xs font-bold sm:inline">검수 대기함</Link>}

@@ -5,7 +5,7 @@ import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 import { installDirName } from "@/lib/skill-zip";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
-import { pickAction, uncurateAction } from "@/lib/editor-actions";
+import { unpickAction } from "@/lib/editor-actions";
 import {
   canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, skillStats,
 } from "@/lib/queries";
@@ -14,7 +14,7 @@ import ReviewForm from "@/components/review-form";
 import CopyButton from "@/components/copy-button";
 import { Cover } from "@/components/skill-card";
 
-const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "검수 완료", rejected: "반려됨" };
+const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "에디터 픽 선정", rejected: "반려됨" };
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -61,8 +61,8 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   return (
     <div>
       <nav className="mb-5 flex gap-2 text-sm text-black/45">
-        <Link href="/skills" className="hover:text-ink">스킬</Link>/
-        <Link href={`/skills?category=${skill.category}`} className="hover:text-ink">{skill.category_label}</Link>/
+        <Link href={isLink ? "/plugins" : "/skills"} className="hover:text-ink">{isLink ? "플러그인·MCP" : "스킬"}</Link>/
+        <Link href={`${isLink ? "/plugins" : "/skills"}?category=${skill.category}`} className="hover:text-ink">{skill.category_label}</Link>/
         <span className="text-black/70">{skill.name}</span>
       </nav>
 
@@ -95,8 +95,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="glass rounded-3xl p-7">
             <div className="mb-3 flex flex-wrap gap-1.5">
-              {skill.editor_pick ? <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽</span> : null}
-              {curated && <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold">검수 완료 {vl(curated.version)}</span>}
+              {curated && <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽 {vl(curated.version)}</span>}
               {skill.visibility === "restricted" && <span className="rounded-full bg-ink px-3 py-1 text-xs text-white">비공개</span>}
             </div>
             <div className="flex items-start gap-3">
@@ -136,7 +135,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             )}
             {curated && curated.id !== latest.id && (
               <a href={`/skills/${skill.slug}/download?v=${curated.id}`} className="mt-2 block text-center text-xs text-black/55 underline">
-                검수된 v{curated.version} 받기
+                에디터 픽 버전 v{curated.version} 받기
               </a>
             )}
 
@@ -257,7 +256,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             <Block title="큐레이션">
               <p className="text-sm">
                 {STATUS[skill.curation_status] ?? "검수 요청 안 함"}
-                {curated && <span className="text-black/50"> · 큐레이티드에 {vl(curated.version)} 게시 중</span>}
+                {curated && <span className="text-black/50"> · 에디터 픽 {vl(curated.version)} 게시 중</span>}
               </p>
               {review?.decision === "rejected" && skill.curation_status === "rejected" && (
                 <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">반려 사유 ({vl(review.version) || "등록본"}, {review.editor_name}): {review.note}</p>
@@ -272,18 +271,11 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   <p className="font-semibold">에디터</p>
                   <ReviewForm skillId={skill.id} versionId={latest.id} version={isLink ? "" : latest.version} slug={skill.slug} />
                   <div className="flex flex-wrap gap-2">
-                    <form action={pickAction}>
-                      <input type="hidden" name="skill_id" value={ids.skill_id} />
-                      <input type="hidden" name="slug" value={ids.slug} />
-                      <input type="hidden" name="version_id" value={skill.curated_version_id ?? latest.id} />
-                      <input type="hidden" name="on" value={skill.editor_pick ? "0" : "1"} />
-                      <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">{skill.editor_pick ? "에디터 픽 해제" : `에디터 픽 지정${curated ? "" : isLink ? " (승인 포함)" : ` (v${latest.version} 승인 포함)`}`}</button>
-                    </form>
                     {curated && (
-                      <form action={uncurateAction}>
+                      <form action={unpickAction}>
                         <input type="hidden" name="skill_id" value={ids.skill_id} />
                         <input type="hidden" name="slug" value={ids.slug} />
-                        <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">큐레이티드에서 내리기</button>
+                        <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">에디터 픽에서 내리기</button>
                       </form>
                     )}
                   </div>
@@ -305,7 +297,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <li key={v.id} className="flex items-start gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
-                      v{v.version} {v.id === skill.curated_version_id && <span className="ml-1 rounded-full bg-accent px-2 text-xs">검수</span>}
+                      v{v.version} {v.id === skill.curated_version_id && <span className="ml-1 rounded-full bg-accent px-2 text-xs">에디터 픽</span>}
                     </p>
                     {v.changelog && <p className="text-black/60">{v.changelog}</p>}
                     <p className="text-xs text-black/40">{v.uploader_name || v.uploader_email} · {fmtDate(v.created_at)}</p>
