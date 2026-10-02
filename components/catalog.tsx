@@ -43,7 +43,7 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
 
   return (
     <div>
-      <span hidden data-tab={base} {...(kind === "lens" ? { "data-tone": "lens" } : {})} />
+      <span hidden data-tab={base} />
       {intro}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>

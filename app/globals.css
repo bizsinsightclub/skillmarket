@@ -84,25 +84,12 @@ input, select, textarea { background: rgb(255 255 255 / 0.9); }
 .md table { border-collapse: collapse; }
 .md th, .md td { border: 1px solid rgb(0 0 0 / 0.15); padding: 0.3em 0.6em; }
 
-/* 헤더의 현재 위치 표시 — 페이지가 [data-tab]·[data-tone] 표식을 그리면 :has() 로 헤더를 바꾼다.
-   JS·경로 판단 없이 렌더 결과만 보므로 깜빡임이 없다. (전문가 영역 = The Lens 퍼플, CLAUDE.md) */
-body:has([data-tab="/skills"]) .nav-link[href="/skills"],
-body:has([data-tab="/plugins"]) .nav-link[href="/plugins"],
-body:has([data-tab="/picks"]) .nav-link[href="/picks"] {
-  background: rgb(255 255 255 / 0.85);
-  color: var(--color-ink);
-  font-weight: 700;
-}
-body:has([data-tone="lens"]) .site-nav {
-  background: rgb(239 233 251 / 0.82);
-  border-color: rgb(167 139 250 / 0.5);
-  box-shadow: 0 10px 40px -12px rgb(91 63 214 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8);
-}
-body:has([data-tone="lens"]) .nav-link { color: rgb(43 36 64 / 0.65); }
-body:has([data-tone="lens"]) .nav-link[href="/experts"] { background: var(--color-lens); color: #fff; font-weight: 700; }
-body:has([data-tone="lens"]) .nav-link[href="/experts"] .nav-dot { background: #fff; }
-body:has([data-tone="lens"]) .nav-upload { background: var(--color-lens); }
-body:has([data-tone="lens"]) .nav-upload:hover { background: var(--color-lens-deep); }
+/* 헤더 메뉴의 현재 위치 — 페이지가 그린 <span hidden data-tab="…"> 표식을 :has() 로 읽어
+   그 메뉴를 자기 색으로 꽉 채운다. JS·경로 판단 없이 렌더 결과만 보므로 깜빡임이 없다. */
+body:has([data-tab="/skills"]) .menu-skills { background: var(--color-accent); color: var(--color-ink); }
+body:has([data-tab="/plugins"]) .menu-plugins { background: #0ea5e9; color: #fff; }
+body:has([data-tab="/experts"]) .menu-experts { background: var(--color-lens); color: #fff; }
+body:has([data-tab="/picks"]) .menu-picks { background: #f59e0b; color: #fff; }
 
 /* 에디터 픽 조명 전환: 투명도·위치만 (블러 애니메이션 금지 — DESIGN.md 성능 규칙) */
 @keyframes spot-in {
