@@ -4,7 +4,7 @@ import { useActionState, useState, startTransition } from "react";
 import type { FormState } from "@/lib/skill-actions";
 import { uploadForm } from "@/components/direct-upload";
 
-export default function VersionForm({ action, suggested }: { action: (p: FormState, f: FormData) => Promise<FormState>; suggested: string }) {
+export default function VersionForm({ action, suggested, lens = false }: { action: (p: FormState, f: FormData) => Promise<FormState>; suggested: string; lens?: boolean }) {
   const [state, dispatch, pending] = useActionState(action, {});
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -23,8 +23,8 @@ export default function VersionForm({ action, suggested }: { action: (p: FormSta
       className="flex max-w-xl flex-col gap-4"
     >
       <label className="flex flex-col gap-1 text-sm">
-        스킬 폴더 zip *
-        <input name="zip" type="file" accept=".zip" required className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30" />
+        {lens ? "렌즈 파일 (.md) *" : "스킬 폴더 zip *"}
+        <input name={lens ? "lens" : "zip"} type="file" accept={lens ? ".md" : ".zip"} required className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30" />
       </label>
       <label className="flex flex-col gap-1 text-sm">
         버전 *

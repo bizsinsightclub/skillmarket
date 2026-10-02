@@ -9,7 +9,7 @@
 ## 화면
 
 - `/` 홈 — 소개 한 줄 + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 최근 선정 순, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션: 요즘 뜨는 스킬(최근 7일 활동 있는 것만) · 새로 올라온 스킬 · 추천 플러그인·MCP. 검색은 헤더 하나만.
-- `/skills` 스킬 · `/plugins` 플러그인·MCP · `/picks` 에디터 픽 — 모두 `components/catalog.tsx`. 탭(전체/에디터 픽), 그 종류의 분류 칩, 정렬(최신·트렌딩·인기, `/picks` 는 최근 선정), 검색(`?q=`, 헤더 검색창은 `/skills`), 카드 그리드, 페이지네이션(20개). 스킬과 플러그인·MCP 는 목록에서 섞지 않는다(`listBoard` 의 `kind`).
+- `/skills` 스킬 · `/plugins` 플러그인·MCP · `/experts` 전문가 렌즈 · `/picks` 에디터 픽 — 모두 `components/catalog.tsx`. 탭(전체/에디터 픽), 그 종류의 분류 칩, 정렬(최신·트렌딩·인기, `/picks` 는 최근 선정), 검색(`?q=`, 헤더 검색창은 `/skills`), 카드 그리드, 페이지네이션(20개). 스킬과 플러그인·MCP 는 목록에서 섞지 않는다(`listBoard` 의 `kind`).
   - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
@@ -25,11 +25,15 @@
 
 ## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다 — 댓글 등)
 
-0. **두 종류의 글** — 분류(`categories.needs_zip`)가 정한다. 코드에 분류 이름을 하드코딩하지 않는다.
+0. **세 종류의 글** — 분류의 `categories.post_type`(skill·link·lens)이 정한다. 코드에 분류 이름을 하드코딩하지 않는다. (`needs_zip` 컬럼은 미사용 — 다음 정리 때 삭제)
    - 스킬(zip): 아래 1~6 전부.
    - **링크형(플러그인·MCP 서버)**: zip 없이 `install_cmd`(설치 명령) + `homepage_url`(http/https 만) + `maker`(만든 곳, 외부). 크레딧의 원작자 칸은 **추천인**. 다운로드·새 버전·SKILL.md 없음, 설치 수 표시 안 함.
    - 링크형도 큐레이션 모델을 그대로 쓰려고 `version='link'`, `zip_path=''` 인 '등록본' 버전 한 줄을 만든다(`lib/link-post.ts`). 수정해도 새 버전이 생기지 않는다.
-   - 수정할 때 스킬 ↔ 링크형 사이로 분류를 바꿀 수 없다.
+   - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
+     - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
+     - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
+     - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상 `public/media/the-lens-intro.mp4`(원본: Expert_Interview_Agent_v5_draft.mp4, 교체 시 파일만 바꾼다).
+   - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
 
 1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다.
    - 서버는 zip 을 디스크에 풀지 않는다. 메모리에서 검사한 뒤 **다시 묶어서**(정규 파일만, SKILL.md 루트) 저장 → 심볼릭 링크·이상한 속성이 설치자에게 가지 않는다.
@@ -127,6 +131,7 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 app/                  라우트
 lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그레이션 실행기
                       link-post.ts 링크형 글(플러그인·MCP) 입력 검증
+                      lens-file.ts The Lens 렌즈 .md 검증·추출
                       test-db.ts   테스트용 PGlite(메모리 Postgres) Db
                       auth.ts      getCurrentUser / requireViewer / isEditor
                       sign.ts      HMAC 서명·세션 토큰        login.ts  도메인 검사·인증 코드
@@ -134,7 +139,7 @@ lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그�
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
-components/           skill-card(카드·표지·그리드), pick-spotlight(홈 에디터 픽 회전), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
+components/           skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
 db/migrations/        *.sql (Postgres, app 스키마)
 ```

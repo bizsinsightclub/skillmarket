@@ -12,7 +12,7 @@ function visible(v: Viewer, p: Params) {
 
 export type Tab = "all" | "pick"; // pick = 에디터 픽(에디터가 승인한 것)
 export type Sort = "latest" | "trending" | "popular" | "picked"; // picked = 최근에 에디터 픽이 된 순
-export type Kind = "skill" | "link"; // link = 플러그인·MCP 같은 링크형 글 (categories.needs_zip = false)
+export type Kind = "skill" | "link" | "lens"; // 글 종류 = categories.post_type. link = 플러그인·MCP, lens = The Lens 전문가 렌즈
 
 export type BoardRow = {
   id: number;
@@ -23,6 +23,9 @@ export type BoardRow = {
   author_name: string;
   author_email: string;
   maker: string;
+  person: string;
+  basis: string;
+  post_type: Kind;
   visibility: "public" | "restricted";
   picked: boolean; // 에디터 픽
   likes: number;
@@ -44,7 +47,7 @@ export async function listBoard(
 
   // 에디터 픽 탭은 비공개 스킬 제외
   if (opts.tab === "pick") where.push("s.curated_version_id IS NOT NULL AND s.visibility = 'public'");
-  if (opts.kind) where.push(opts.kind === "link" ? "NOT c.needs_zip" : "c.needs_zip");
+  if (opts.kind) where.push(`c.post_type = ${p.add(opts.kind)}`);
   if (opts.category) where.push(`s.category = ${p.add(opts.category)}`);
   if (opts.author) where.push(`s.author_email = ${p.add(opts.author)}`);
   if (opts.q?.trim()) {
@@ -62,7 +65,7 @@ export async function listBoard(
   const whereSql = where.join(" AND ");
 
   const rows = await db.query<BoardRow>(
-    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker,
+    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker, s.person, s.basis, c.post_type,
             s.visibility, (s.curated_version_id IS NOT NULL) AS picked, s.created_at,
             (SELECT MAX(r.created_at) FROM app.curation_reviews r
               WHERE r.skill_id = s.id AND r.version_id = s.curated_version_id AND r.decision = 'approved') AS picked_at,
@@ -82,8 +85,8 @@ export async function listBoard(
 }
 
 export async function listCategories(db: Db, kind?: Kind) {
-  const all = await db.query<{ slug: string; label: string; needs_zip: boolean }>("SELECT slug, label, needs_zip FROM app.categories ORDER BY sort_order");
-  return kind ? all.filter((c) => c.needs_zip === (kind === "skill")) : all;
+  const all = await db.query<{ slug: string; label: string; post_type: Kind }>("SELECT slug, label, post_type FROM app.categories ORDER BY sort_order");
+  return kind ? all.filter((c) => c.post_type === kind) : all;
 }
 
 export type Skill = {
@@ -94,11 +97,14 @@ export type Skill = {
   body_md: string;
   category: string;
   category_label: string;
-  needs_zip: boolean; // false = 링크형 글(플러그인·MCP)
+  post_type: Kind;
   tags: string;
   maker: string;
   install_cmd: string;
   homepage_url: string;
+  person: string; // 렌즈: 방법론 출처 인물
+  basis: string; // 렌즈: 기반 방법론
+  bands: string; // 렌즈: 오퍼레이션 단계 (쉼표)
   author_name: string;
   author_email: string;
   owner_id: number;
@@ -116,7 +122,7 @@ export function getSkill(db: Db, v: Viewer, key: { slug: string } | { id: number
   const cond = "slug" in key ? `s.slug = ${p.add(key.slug)}` : `s.id = ${p.add(key.id)}`;
   return one<Skill>(
     db,
-    `SELECT s.*, c.label AS category_label, c.needs_zip FROM app.skills s JOIN app.categories c ON c.slug = s.category
+    `SELECT s.*, c.label AS category_label, c.post_type FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${cond} AND ${visible(v, p)}`,
     p.values,
   );

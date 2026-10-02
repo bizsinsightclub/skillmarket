@@ -4,6 +4,7 @@ import { getDb, one } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 import { installDirName } from "@/lib/skill-zip";
+import { parseLensFile } from "@/lib/lens-file";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
 import { unpickAction } from "@/lib/editor-actions";
 import {
@@ -15,6 +16,15 @@ import CopyButton from "@/components/copy-button";
 import { Cover } from "@/components/skill-card";
 
 const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "에디터 픽 선정", rejected: "반려됨" };
+
+// 렌즈 .md 의 시스템 프롬프트(첫 코드블록). 예전 파일이 형식에 안 맞아도 화면은 그려야 하니 원문으로 대체
+function lensPromptOf(md: string) {
+  try {
+    return parseLensFile(md).prompt;
+  } catch {
+    return md;
+  }
+}
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -55,14 +65,18 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   const demo = snapshots.find((s) => s.kind === "demo");
   const ids = { skill_id: skill.id, slug: skill.slug };
   // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
-  const isLink = !skill.needs_zip;
+  const isLink = skill.post_type === "link";
+  const isLens = skill.post_type === "lens";
+  const lensPrompt = isLens ? lensPromptOf(latest.skill_md) : "";
+  const bands = skill.bands ? skill.bands.split(",") : [];
   const vl = (v: string) => (isLink ? "" : `v${v}`);
+  const [listHref, listLabel] = isLink ? ["/plugins", "플러그인·MCP"] : isLens ? ["/experts", "전문가"] : ["/skills", "스킬"];
 
   return (
     <div>
       <nav className="mb-5 flex gap-2 text-sm text-black/45">
-        <Link href={isLink ? "/plugins" : "/skills"} className="hover:text-ink">{isLink ? "플러그인·MCP" : "스킬"}</Link>/
-        <Link href={`${isLink ? "/plugins" : "/skills"}?category=${skill.category}`} className="hover:text-ink">{skill.category_label}</Link>/
+        <Link href={listHref} className="hover:text-ink">{listLabel}</Link>/
+        {skill.category_label !== listLabel && <><Link href={`${listHref}?category=${skill.category}`} className="hover:text-ink">{skill.category_label}</Link>/</>}
         <span className="text-black/70">{skill.name}</span>
       </nav>
 
@@ -109,6 +123,19 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </form>
             </div>
             {skill.summary && <p className="mt-3 text-black/65">{skill.summary}</p>}
+            {isLens && (
+              <div className="mt-4 rounded-2xl bg-white/70 p-4 text-sm ring-1 ring-black/5">
+                <p className="font-semibold">{skill.basis} 기반</p>
+                {bands.length > 0 && (
+                  <ol className="mt-3 flex flex-wrap gap-1.5">
+                    {bands.map((b, i) => (
+                      <li key={b} className="rounded-full bg-ink px-2.5 py-1 text-xs font-medium text-white">{i + 1}. {b}</li>
+                    ))}
+                  </ol>
+                )}
+                <p className="mt-3 text-xs text-black/50">공개된 방법론을 분석 기준으로 삼은 렌즈입니다. 인물을 흉내 내거나 그 사람의 견해를 대변하지 않습니다.</p>
+              </div>
+            )}
 
             <div className="mt-5 flex items-center gap-4 text-sm text-black/60">
               <span>♥ {stats.likes}</span>
@@ -125,6 +152,11 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   </a>
                 )}
               </div>
+            ) : isLens ? (
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-ink px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-black">렌즈 파일 받기</a>
+                <CopyButton text={lensPrompt} label="프롬프트 복사" className="rounded-2xl bg-white/80 px-4 py-3.5 text-sm font-bold ring-1 ring-black/10 hover:bg-white" />
+              </div>
             ) : (
               <div className="mt-6 grid grid-cols-2 gap-2">
                 <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
@@ -140,6 +172,12 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             )}
 
             <dl className="mt-6 space-y-2.5 border-t border-black/5 pt-5 text-sm">
+              {isLens && (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-black/45">기반 인물</dt>
+                  <dd className="font-semibold">{skill.person}</dd>
+                </div>
+              )}
               {isLink && (
                 <div className="flex gap-3">
                   <dt className="w-16 shrink-0 text-black/45">만든 곳</dt>
@@ -225,6 +263,21 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-sm underline">{skill.homepage_url}</a>
               )}
             </Block>
+          ) : isLens ? (
+            <>
+              <Block title="The Lens 에서 쓰기">
+                <p className="text-sm leading-relaxed text-black/70">
+                  The Lens 에 바로 설치하는 기능은 준비 중입니다. 지금은 <b>렌즈 파일(.md)</b>을 받아 The Lens 관리자에게 전달하거나,
+                  프롬프트를 복사해 다른 Claude 대화의 시스템 프롬프트로 써 보세요.
+                </p>
+              </Block>
+              <Block title={`렌즈 원문 (v${latest.version})`}>
+                <details>
+                  <summary className="cursor-pointer text-sm text-black/60">원문 펼치기</summary>
+                  <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{latest.skill_md}</pre>
+                </details>
+              </Block>
+            </>
           ) : (
             <>
           <Block title="설치 방법">

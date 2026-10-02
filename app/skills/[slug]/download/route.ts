@@ -21,6 +21,6 @@ export async function GET(req: Request, ctx: RouteContext<"/skills/[slug]/downlo
   await db.query("INSERT INTO app.installs (skill_id, version_id, user_id) VALUES ($1, $2, $3)", [skill.id, version.id, viewer.id]);
   return new Response(null, {
     status: 302,
-    headers: { Location: await signedUrl(version.zip_path, 300, `${skill.slug}-${version.version}.zip`), "Cache-Control": "no-store" },
+    headers: { Location: await signedUrl(version.zip_path, 300, `${skill.slug}-${version.version}.${version.zip_path.split(".").pop()}`), "Cache-Control": "no-store" }, // .zip 또는 렌즈 .md
   });
 }

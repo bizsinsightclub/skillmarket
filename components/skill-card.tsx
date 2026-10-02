@@ -1,6 +1,13 @@
 import Link from "next/link";
 import type { BoardRow } from "@/lib/queries";
 
+// 카드·조명에 쓰는 한 줄 크레딧. 플러그인은 만든 곳+추천인, 렌즈는 '○○ 기반'(방법론 출처 표기)
+export function byline(s: Pick<BoardRow, "post_type" | "maker" | "author_name" | "basis">) {
+  if (s.post_type === "link") return `by ${s.maker} · 추천 ${s.author_name}`;
+  if (s.post_type === "lens") return `${s.basis} 기반`;
+  return `by ${s.author_name}`;
+}
+
 // 이미지가 없는 스킬도 카드가 비어 보이지 않게: slug 로 정해지는 색 + 이름으로 표지를 만든다
 export function Cover({ slug, name, category }: { slug: string; name: string; category: string }) {
   let h = 0;
@@ -49,7 +56,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
         </div>
         {/* 원칙 6: 이미지 위 수치는 어두운 유리 칩 */}
         <div className="glass-dark absolute bottom-3 right-3 flex gap-2.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums">
-          {!s.maker && <span>↓ {s.installs}</span>/* 링크형(플러그인·MCP)은 내려받기가 없다 */}
+          {s.post_type !== "link" && <span>↓ {s.installs}</span>/* 링크형(플러그인·MCP)은 내려받기가 없다 */}
           <span>♥ {s.likes}</span>
         </div>
       </div>
@@ -58,7 +65,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
         <span className="shrink-0 text-xs font-medium text-black/45">{s.category_label}</span>
       </div>
       <p className="mt-0.5 truncate px-0.5 text-sm text-black/55">{s.summary || " "}</p>
-      <p className="mt-1 px-0.5 text-xs text-black/45">{s.maker ? `by ${s.maker} · 추천 ${s.author_name}` : `by ${s.author_name}`}</p>
+      <p className="mt-1 truncate px-0.5 text-xs text-black/45">{byline(s)}</p>
     </Link>
   );
 }

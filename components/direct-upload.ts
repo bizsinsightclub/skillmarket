@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { prepareUpload, type UploadSpec } from "@/lib/skill-actions";
 
-const FILE_FIELDS = ["zip", "images", "demo"] as const;
+const FILE_FIELDS = ["zip", "images", "demo", "lens"] as const;
 
 // 폼의 파일들을 서버를 거치지 않고 Storage 에 직접 올린 뒤(1회용 서명 URL),
 // 파일 대신 임시 경로(<field>_tmp)를 담은 FormData 를 돌려준다. 실패하면 에러 문구.

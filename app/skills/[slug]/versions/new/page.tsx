@@ -16,7 +16,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
   const { viewer } = await requireViewer();
   const db = getDb();
   const skill = await getSkill(db, viewer, { slug });
-  if (!skill || !canEdit(viewer, skill) || !skill.needs_zip) notFound(); // 링크형 글엔 버전이 없다
+  if (!skill || !canEdit(viewer, skill) || skill.post_type === "link") notFound(); // 링크형 글엔 버전이 없다
   const [latest] = await listVersions(db, skill.id);
   return (
     <div>
@@ -25,7 +25,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
         현재 v{latest.version}
         {skill.curated_version_id ? " · 에디터 픽은 검수를 다시 받기 전까지 기존 승인 버전을 유지합니다" : ""}
       </p>
-      <VersionForm action={addVersion.bind(null, slug)} suggested={bump(latest.version)} />
+      <VersionForm action={addVersion.bind(null, slug)} suggested={bump(latest.version)} lens={skill.post_type === "lens"} />
     </div>
   );
 }

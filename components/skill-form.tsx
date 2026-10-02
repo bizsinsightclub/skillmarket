@@ -5,7 +5,8 @@ import type { FormState } from "@/lib/skill-actions";
 import { uploadForm } from "./direct-upload";
 
 type Snapshot = { id: number; kind: "image" | "demo"; path: string };
-type Category = { slug: string; label: string; needs_zip: boolean };
+type PostType = "skill" | "link" | "lens";
+type Category = { slug: string; label: string; post_type: PostType };
 
 export type SkillFormValues = {
   name: string;
@@ -21,6 +22,8 @@ export type SkillFormValues = {
   maker: string;
   install_cmd: string;
   homepage_url: string;
+  person: string;
+  basis: string;
 };
 
 const input = "rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30";
@@ -49,12 +52,15 @@ export default function SkillForm({
   const error = uploadError ?? state.error;
   const busy = uploading || pending;
 
-  // 분류가 zip 을 받지 않으면(플러그인·MCP) 링크형 글: 설치 명령·공식 페이지·제작자로 등록
-  const needsZip = (slug: string) => categories.find((c) => c.slug === slug)?.needs_zip ?? true;
-  const isLink = !needsZip(category);
-  // 수정할 때는 스킬 ↔ 링크형 사이로 못 바꾼다 → 같은 종류 분류만 보여 준다
-  const options = mode === "edit" ? categories.filter((c) => c.needs_zip === needsZip(values.category)) : categories;
+  // 분류가 글 종류를 정한다: 스킬(zip) / 플러그인·MCP(링크) / 전문가 렌즈(.md)
+  const typeOf = (slug: string): PostType => categories.find((c) => c.slug === slug)?.post_type ?? "skill";
+  const type = typeOf(category);
+  const isLink = type === "link";
+  const isLens = type === "lens";
+  // 수정할 때는 글 종류를 못 바꾼다 → 같은 종류 분류만 보여 준다
+  const options = mode === "edit" ? categories.filter((c) => c.post_type === typeOf(values.category)) : categories;
   const creditWho = isLink ? "추천인" : "원작자";
+  const TYPE_LABEL: Record<PostType, string> = { skill: "스킬", link: "", lens: "" };
 
   return (
     // form action 대신 onSubmit: 파일은 Storage 로 먼저 올리고, 검증 실패 시 입력값(파일 포함)이 초기화되지 않게
@@ -73,12 +79,48 @@ export default function SkillForm({
       <label className={label}>
         무엇을 올리나요?
         <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} w-60`}>
-          {options.map((c) => <option key={c.slug} value={c.slug}>{c.needs_zip ? `스킬 · ${c.label}` : c.label}</option>)}
+          {options.map((c) => <option key={c.slug} value={c.slug}>{TYPE_LABEL[c.post_type] ? `${TYPE_LABEL[c.post_type]} · ${c.label}` : c.label}</option>)}
         </select>
-        <span className={hint}>{isLink ? "추천하는 플러그인·MCP 를 설치 방법과 함께 소개합니다. 파일은 올리지 않습니다." : "SKILL.md 가 든 스킬 폴더를 올립니다."}</span>
+        <span className={hint}>
+          {isLink
+            ? "추천하는 플러그인·MCP 를 설치 방법과 함께 소개합니다. 파일은 올리지 않습니다."
+            : isLens
+              ? "The Lens 의 렌즈(.md) 파일을 올립니다. 실존 인물의 공개된 방법론을 기준으로 삼되, 인물을 흉내 내는 렌즈는 올리지 마세요."
+              : "SKILL.md 가 든 스킬 폴더를 올립니다."}
+        </span>
       </label>
 
-      {mode === "create" && !isLink && (
+      {isLens && (
+        <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+          <legend className={legend}>렌즈</legend>
+          {mode === "create" && (
+            <>
+              <label className={label}>
+                렌즈 파일 (.md) *
+                <input name="lens" type="file" accept=".md" required className={input} />
+                <span className={hint}>시스템 프롬프트 코드블록과 # 역할 · # 오퍼레이션 · # 출력 형식 절이 있어야 합니다. 최대 200KB.</span>
+              </label>
+              <label className={label}>
+                버전
+                <input name="version" defaultValue="1.0.0" maxLength={20} className={`${input} w-40`} />
+              </label>
+            </>
+          )}
+          <div className="flex gap-4">
+            <label className={`${label} w-48`}>
+              기반 인물 *
+              <input name="person" defaultValue={values.person} maxLength={40} required placeholder="예: 김난도" className={input} />
+            </label>
+            <label className={`${label} flex-1`}>
+              기반 방법론 *
+              <input name="basis" defaultValue={values.basis} maxLength={80} required placeholder="예: 김난도의 소비트렌드 분석 방법론" className={input} />
+            </label>
+          </div>
+          <span className={hint}>인물 이름은 방법론의 출처 표기입니다. 화면에는 &lsquo;○○ 기반&rsquo;으로 나옵니다.</span>
+        </fieldset>
+      )}
+
+      {mode === "create" && type === "skill" && (
         <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
           <legend className={legend}>스킬 파일</legend>
           <label className={label}>
@@ -115,12 +157,13 @@ export default function SkillForm({
       <label className={label}>
         이름{(mode === "edit" || isLink) && " *"}
         <input name="name" defaultValue={values.name} maxLength={80} required={mode === "edit" || isLink} className={input} />
-        {mode === "create" && !isLink && <span className={hint}>비우면 SKILL.md 의 name 을 씁니다.</span>}
+        {mode === "create" && type === "skill" && <span className={hint}>비우면 SKILL.md 의 name 을 씁니다.</span>}
+        {mode === "create" && isLens && <span className={hint}>비우면 렌즈 파일 제목에서 가져옵니다.</span>}
       </label>
       <label className={label}>
         한 줄 요약
         <input name="summary" defaultValue={values.summary} maxLength={200} className={input} />
-        {mode === "create" && !isLink && <span className={hint}>비우면 SKILL.md 의 description 을 씁니다.</span>}
+        {mode === "create" && type === "skill" && <span className={hint}>비우면 SKILL.md 의 description 을 씁니다.</span>}
       </label>
       <label className={label}>
         태그
@@ -145,7 +188,7 @@ export default function SkillForm({
         </div>
         {!isLink && (
           <label className={label}>
-            원본 스킬 (다른 스킬을 고쳐 만든 경우)
+            {isLens ? "원본 렌즈 (다른 렌즈를 고쳐 만든 경우)" : "원본 스킬 (다른 스킬을 고쳐 만든 경우)"}
             <input name="based_on" defaultValue={values.based_on} placeholder="원본 스킬 주소 또는 slug" className={input} />
           </label>
         )}
@@ -168,11 +211,11 @@ export default function SkillForm({
           </div>
         )}
         <label className={label}>
-          {isLink ? "소개 이미지 추가" : "결과물 이미지 추가"}
+          {type === "skill" ? "결과물 이미지 추가" : "소개 이미지 추가"}
           <input name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className={input} />
           <span className={hint}>png·jpg·webp·gif, 장당 5MB, 최대 10장. 첫 장이 목록 썸네일이 됩니다.</span>
         </label>
-        {!isLink && (
+        {type === "skill" && (
           <label className={label}>
             데모 HTML {snapshots.some((s) => s.kind === "demo") && "(올리면 기존 데모를 바꿉니다)"}
             <input name="demo" type="file" accept=".html,.htm" className={input} />

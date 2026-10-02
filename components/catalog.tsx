@@ -14,7 +14,9 @@ function pick<T extends string>(raw: unknown, allowed: [T, string][], fallback: 
 type SP = Record<string, string | string[] | undefined>;
 
 // /skills(스킬), /plugins(플러그인·MCP), /picks(에디터 픽 전체) 가 같이 쓰는 목록 화면
-export default async function Catalog({ base, title, kind, onlyPicks = false, sp }: { base: string; title: string; kind?: Kind; onlyPicks?: boolean; sp: SP }) {
+const UPLOAD: Record<Kind, [string, string]> = { skill: ["/write", "스킬 올리기"], link: ["/write?category=plugin", "추천하기"], lens: ["/write?category=expert", "렌즈 올리기"] };
+
+export default async function Catalog({ base, title, kind, onlyPicks = false, intro, sp }: { base: string; title: string; kind?: Kind; onlyPicks?: boolean; intro?: React.ReactNode; sp: SP }) {
   const { viewer } = await requireViewer();
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
   const tab: Tab = onlyPicks ? "pick" : pick(sp.tab, TABS, "all");
@@ -40,6 +42,7 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, sp
 
   return (
     <div>
+      {intro}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-[-0.03em]">{q ? `“${q}” 검색 결과` : title}</h1>
@@ -50,12 +53,15 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, sp
           </p>
         </div>
         {!onlyPicks && (
+          <div className="flex items-center gap-2">
+          {kind && <Link href={UPLOAD[kind][0]} className="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white hover:bg-black">{UPLOAD[kind][1]}</Link>}
           <div className="glass flex gap-1 rounded-2xl p-1">
             {TABS.map(([k, label]) => (
               <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-xl px-4 py-1.5 text-sm font-semibold ${tab === k ? "bg-ink text-white" : "text-black/60 hover:text-ink"}`}>
                 {label}
               </Link>
             ))}
+          </div>
           </div>
         )}
       </div>

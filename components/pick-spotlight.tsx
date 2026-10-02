@@ -10,10 +10,9 @@ export type Pick = {
   summary: string;
   thumb: string | null;
   category_label: string;
-  maker: string;
-  author_name: string;
+  byline: string;
   likes: number;
-  installs: number;
+  installs: number | null; // null = 내려받기 없는 링크형(플러그인·MCP)
 };
 
 const INTERVAL_MS = 6000;
@@ -68,8 +67,8 @@ export default function PickSpotlight({ picks }: { picks: Pick[] }) {
           <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-[-0.03em] sm:text-4xl">{p.name}</h2>
           <p className="mt-3 line-clamp-3 text-white/70">{p.summary}</p>
           <p className="mt-4 text-sm text-white/50">
-            {p.maker ? <>by {p.maker} · 추천 {p.author_name}</> : <>by {p.author_name}</>}
-            <span className="ml-3 tabular-nums">♥ {p.likes}{!p.maker && ` · ↓ ${p.installs}`}</span>
+            {p.byline}
+            <span className="ml-3 tabular-nums">♥ {p.likes}{p.installs !== null && ` · ↓ ${p.installs}`}</span>
           </p>
           <div className="mt-6 flex flex-wrap gap-2 text-sm">
             <Link href={`/skills/${p.slug}`} className="rounded-xl bg-accent px-5 py-2.5 font-bold text-ink">자세히 보기</Link>

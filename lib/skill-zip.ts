@@ -87,8 +87,9 @@ export function installDirName(skillMd: string, slug: string) {
   return typeof name === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(name) ? name : slug;
 }
 
-export function slugify(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "skill";
+// 영문·숫자만 남긴다. 한글 이름처럼 남는 게 없으면 fallback (뒤에 -2, -3… 은 uniqueSlug 가 붙임)
+export function slugify(name: string, fallback = "skill") {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || fallback;
 }
 
 const IMAGE_SIGS: [string, (b: Uint8Array) => boolean][] = [

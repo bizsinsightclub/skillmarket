@@ -26,7 +26,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             {user && (
               <>
                 <div className="hidden items-center gap-1 font-medium text-black/60 md:flex">
-                  {[["/skills", "스킬"], ["/plugins", "플러그인·MCP"], ["/picks", "에디터 픽"]].map(([href, label]) => (
+                  {[["/skills", "스킬"], ["/plugins", "플러그인·MCP"], ["/experts", "전문가"], ["/picks", "에디터 픽"]].map(([href, label]) => (
                     <Link key={href} href={href} className="rounded-lg px-3 py-1.5 hover:bg-white/70 hover:text-ink">{label}</Link>
                   ))}
                 </div>
