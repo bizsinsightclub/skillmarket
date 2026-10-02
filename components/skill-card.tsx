@@ -8,32 +8,20 @@ export function byline(s: Pick<BoardRow, "post_type" | "maker" | "author_name" |
   return `by ${s.author_name}`;
 }
 
-// 이미지가 없는 스킬도 카드가 비어 보이지 않게: slug 로 정해지는 색 + 이름으로 표지를 만든다
-export function Cover({ slug, name, category }: { slug: string; name: string; category: string }) {
-  let h = 0;
-  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return (
-    <div
-      className="flex h-full w-full flex-col justify-center px-6 text-white"
-      style={{
-        background: `radial-gradient(80% 90% at 85% 15%, hsl(${(h + 60) % 360} 40% 60% / 0.18), transparent 65%), linear-gradient(135deg, hsl(${h} 28% 28%), hsl(${(h + 30) % 360} 25% 17%))`,
-      }}
-    >
-      {/* 위 왼쪽은 배지, 아래 오른쪽은 숫자 자리 → 가운데에 둔다 */}
-      <span className="text-xs font-semibold tracking-wide opacity-60">{category}</span>
-      <span className="mt-1 line-clamp-2 break-all text-2xl font-extrabold leading-tight tracking-[-0.02em]">{name}</span>
-    </div>
-  );
+// 이미지가 없는 글은 입력한 정보로 서버가 그린 표지(/skills/[slug]/cover). updated_at 이 캐시 키라 글을 고치면 새로 그린다
+export function coverUrl(slug: string, updatedAt: Date | string) {
+  return `/skills/${slug}/cover?v=${new Date(updatedAt).getTime()}`;
 }
 
-export function Thumb({ path, slug, name, category, className = "" }: { path: string | null; slug: string; name: string; category: string; className?: string }) {
+export function Thumb({ path, slug, name, updatedAt, className = "" }: { path: string | null; slug: string; name: string; updatedAt: Date | string; className?: string }) {
   return (
     <div className={`overflow-hidden bg-black/5 ${className}`}>
-      {path ? (
-        <img src={`/files/${path}`} alt={`${name} 결과물 미리보기`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
-      ) : (
-        <Cover slug={slug} name={name} category={category} />
-      )}
+      <img
+        src={path ? `/files/${path}` : coverUrl(slug, updatedAt)}
+        alt={`${name} 미리보기`}
+        loading="lazy"
+        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+      />
     </div>
   );
 }
@@ -48,7 +36,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
           path={s.thumb}
           slug={s.slug}
           name={s.name}
-          category={s.category_label}
+          updatedAt={s.updated_at}
           className={`aspect-[16/10] rounded-2xl shadow-[0_12px_30px_-18px_rgb(20_20_40/0.45)] transition-shadow duration-300 group-hover:shadow-[0_20px_40px_-18px_rgb(20_20_40/0.55)] ${lens ? "ring-2 ring-lens-2/70" : "ring-1 ring-black/5"}`}
         />
         <div className="absolute left-3 top-3 flex gap-1.5">

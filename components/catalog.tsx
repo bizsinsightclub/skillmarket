@@ -14,7 +14,8 @@ function pick<T extends string>(raw: unknown, allowed: [T, string][], fallback: 
 type SP = Record<string, string | string[] | undefined>;
 
 // /skills(스킬), /plugins(플러그인·MCP), /picks(에디터 픽 전체) 가 같이 쓰는 목록 화면
-const UPLOAD: Record<Kind, [string, string]> = { skill: ["/write", "스킬 올리기"], link: ["/write?category=plugin", "추천하기"], lens: ["/write?category=expert", "렌즈 올리기"] };
+// 종류별 바로가기. 스킬은 헤더 '올리기'와 겹쳐서 두지 않는다
+const UPLOAD: Partial<Record<Kind, [string, string]>> = { link: ["/write?category=plugin", "추천하기"], lens: ["/write?category=expert", "렌즈 올리기"] };
 
 export default async function Catalog({ base, title, kind, onlyPicks = false, intro, sp }: { base: string; title: string; kind?: Kind; onlyPicks?: boolean; intro?: React.ReactNode; sp: SP }) {
   const { viewer } = await requireViewer();
@@ -56,7 +57,7 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
         </div>
         {!onlyPicks && (
           <div className="flex items-center gap-2">
-          {kind && <Link href={UPLOAD[kind][0]} className={`rounded-xl px-4 py-2 text-sm font-bold hover:opacity-90 ${on}`}>{UPLOAD[kind][1]}</Link>}
+          {kind && UPLOAD[kind] && <Link href={UPLOAD[kind][0]} className={`rounded-xl px-4 py-2 text-sm font-bold hover:opacity-90 ${on}`}>{UPLOAD[kind][1]}</Link>}
           <div className="glass flex gap-1 rounded-2xl p-1">
             {TABS.map(([k, label]) => (
               <Link key={k} href={href({ tab: k, page: 1 })} className={`rounded-xl px-4 py-1.5 text-sm font-semibold ${tab === k ? on : "text-black/60 hover:text-ink"}`}>

@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Cover } from "./skill-card";
 
 export type Pick = {
   slug: string;
   name: string;
   summary: string;
-  thumb: string | null;
+  image: string; // 올린 이미지 또는 자동 표지 주소
   category_label: string;
   byline: string;
   likes: number;
@@ -45,16 +44,12 @@ export default function PickSpotlight({ picks }: { picks: Pick[] }) {
       className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(160deg,#1a1a1f,#202027)] p-4 text-white sm:p-6"
     >
       {/* 현재 슬라이드 이미지를 크게 흐려 깐 은은한 배경 (전환 시 블러 애니메이션 없음) */}
-      {p.thumb && <img key={p.thumb} src={`/files/${p.thumb}`} alt="" aria-hidden className="absolute inset-0 -z-10 h-full w-full scale-125 object-cover opacity-20 blur-3xl" />}
+      <img key={p.image} src={p.image} alt="" aria-hidden className="absolute inset-0 -z-10 h-full w-full scale-125 object-cover opacity-20 blur-3xl" />
 
       <div key={p.slug} className="grid items-center gap-6 motion-safe:animate-[spot-in_.5s_ease-out] md:grid-cols-[1.25fr_1fr] md:gap-10">
         <Link href={`/skills/${p.slug}`} className="block overflow-hidden rounded-2xl ring-1 ring-white/10">
           <div className="aspect-[16/10]">
-            {p.thumb ? (
-              <img src={`/files/${p.thumb}`} alt={`${p.name} 미리보기`} className="h-full w-full object-cover" />
-            ) : (
-              <Cover slug={p.slug} name={p.name} category={p.category_label} />
-            )}
+            <img src={p.image} alt={`${p.name} 미리보기`} className="h-full w-full object-cover" />
           </div>
         </Link>
 

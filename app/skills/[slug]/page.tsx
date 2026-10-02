@@ -13,7 +13,7 @@ import {
 import Markdown from "@/components/markdown";
 import ReviewForm from "@/components/review-form";
 import CopyButton from "@/components/copy-button";
-import { Cover } from "@/components/skill-card";
+import { coverUrl } from "@/components/skill-card";
 
 const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "에디터 픽 선정", rejected: "반려됨" };
 
@@ -100,8 +100,8 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </div>
           )}
           {!images.length && !demo && (
-            <div className="aspect-[16/10] overflow-hidden rounded-3xl">
-              <Cover slug={skill.slug} name={skill.name} category={skill.category_label} />
+            <div className="glass overflow-hidden rounded-3xl p-2">
+              <img src={coverUrl(skill.slug, skill.updated_at)} alt={`${skill.name} 미리보기`} className="aspect-[16/10] w-full rounded-2xl object-cover" />
             </div>
           )}
         </div>

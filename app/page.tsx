@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { listBoard } from "@/lib/queries";
-import { SkillGrid, byline } from "@/components/skill-card";
+import { SkillGrid, byline, coverUrl } from "@/components/skill-card";
 import PickSpotlight from "@/components/pick-spotlight";
 
 function Section({ title, sub, href, lens = false, children }: { title: string; sub?: string; href: string; lens?: boolean; children: React.ReactNode }) {
@@ -42,7 +42,6 @@ export default async function HomePage() {
           <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">동료들의 스킬을 함께 쓰고, 함께 키워요</h1>
         </div>
         <div className="flex gap-2 text-sm">
-          <Link href="/write" className="rounded-xl bg-ink px-4 py-2.5 font-bold text-white hover:bg-black">스킬 올리기</Link>
           <Link href="/write?category=plugin" className="glass rounded-xl px-4 py-2.5 font-bold">플러그인 추천하기</Link>
         </div>
       </div>
@@ -51,7 +50,7 @@ export default async function HomePage() {
         <div className="mb-16">
           <PickSpotlight
             picks={picks.rows.map((r) => ({
-              slug: r.slug, name: r.name, summary: r.summary, thumb: r.thumb, category_label: r.category_label,
+              slug: r.slug, name: r.name, summary: r.summary, image: r.thumb ? `/files/${r.thumb}` : coverUrl(r.slug, r.updated_at), category_label: r.category_label,
               byline: byline(r), likes: r.likes, installs: r.post_type === "link" ? null : r.installs,
             }))}
           />

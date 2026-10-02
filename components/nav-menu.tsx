@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// 헤더 오른쪽 끝 메뉴 상자. 메뉴마다 고유 색·아이콘으로 구분한다.
+// 헤더 로고 옆 메뉴 상자. 메뉴마다 고유 색·아이콘으로 구분한다. (에디터 픽은 홈 조명이 맡아 메뉴에서 뺐다)
 // 현재 위치는 페이지가 그린 <span hidden data-tab="…"> 표식을 globals.css 의 :has() 가 읽어 꽉 찬 색으로 칠한다(JS 없음).
 const MENU = [
   {
@@ -14,10 +14,6 @@ const MENU = [
   {
     href: "/experts", label: "전문가", cls: "menu-experts bg-lens-bg text-lens-deep hover:bg-[#e3d8fd]",
     icon: <><circle cx="10" cy="10" r="7" /><circle cx="10" cy="10" r="3" /></>,
-  },
-  {
-    href: "/picks", label: "에디터 픽", cls: "menu-picks bg-amber-100 text-amber-800 hover:bg-amber-200",
-    icon: <path d="M10 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" />,
   },
 ];
 

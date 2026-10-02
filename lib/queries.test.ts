@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
-import { listBoard, getSkill, authorStats, type Viewer, type Tab } from "./queries.ts";
+import { listBoard, getSkill, authorStats, listNotices, unreadNotices, type Viewer, type Tab } from "./queries.ts";
 import type { Db } from "./db.ts";
 
 const SEED = `
@@ -59,4 +59,18 @@ test("단건 조회·원작자 합계도 같은 가시성 규칙", async () => {
   assert.equal((await getSkill(db, friend, { slug: "sec" }))?.id, 2);
   assert.equal((await authorStats(db, other, "owner@samsung.com")).skills, 1);
   assert.equal((await authorStats(db, friend, "owner@samsung.com")).skills, 2);
+});
+
+test("알림함: 내 글에 대한 남의 검수·좋아요만, 안 읽은 수는 마지막으로 연 뒤부터", async () => {
+  const db = await testDb(SEED);
+  await db.query("UPDATE app.users SET inbox_seen_at = now() - interval '1 day' WHERE id = 1");
+  await db.query("INSERT INTO app.likes (user_id, skill_id) VALUES (2, 1), (1, 1)"); // 1번(본인) 좋아요는 알림 아님
+  await db.query("INSERT INTO app.curation_reviews (skill_id, version_id, editor_id, decision, note) VALUES (1, 1, 3, 'rejected', '설명 부족')");
+  const n = await listNotices(db, 1);
+  assert.deepEqual(n.map((x) => x.kind).sort(), ["like", "review"]);
+  assert.equal(n.find((x) => x.kind === "review")?.note, "설명 부족");
+  assert.equal(await unreadNotices(db, 1), 2);
+  await db.query("UPDATE app.users SET inbox_seen_at = now() WHERE id = 1");
+  assert.equal(await unreadNotices(db, 1), 0);
+  assert.equal((await listNotices(db, 2)).length, 0); // 남의 글 알림은 안 보임
 });

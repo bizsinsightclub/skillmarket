@@ -89,7 +89,6 @@ input, select, textarea { background: rgb(255 255 255 / 0.9); }
 body:has([data-tab="/skills"]) .menu-skills { background: var(--color-accent); color: var(--color-ink); }
 body:has([data-tab="/plugins"]) .menu-plugins { background: #0ea5e9; color: #fff; }
 body:has([data-tab="/experts"]) .menu-experts { background: var(--color-lens); color: #fff; }
-body:has([data-tab="/picks"]) .menu-picks { background: #f59e0b; color: #fff; }
 
 /* 에디터 픽 조명 전환: 투명도·위치만 (블러 애니메이션 금지 — DESIGN.md 성능 규칙) */
 @keyframes spot-in {

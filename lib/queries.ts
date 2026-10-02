@@ -32,6 +32,7 @@ export type BoardRow = {
   installs: number;
   trend: number;
   created_at: Date;
+  updated_at: Date; // 자동 표지 캐시 키
   thumb: string | null;
 };
 
@@ -66,7 +67,7 @@ export async function listBoard(
 
   const rows = await db.query<BoardRow>(
     `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker, s.person, s.basis, c.post_type,
-            s.visibility, (s.curated_version_id IS NOT NULL) AS picked, s.created_at,
+            s.visibility, (s.curated_version_id IS NOT NULL) AS picked, s.created_at, s.updated_at,
             (SELECT MAX(r.created_at) FROM app.curation_reviews r
               WHERE r.skill_id = s.id AND r.version_id = s.curated_version_id AND r.decision = 'approved') AS picked_at,
             (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS likes,
@@ -200,4 +201,39 @@ export function listPending(db: Db) {
     `SELECT s.id, s.slug, s.name, s.author_name, s.updated_at, s.visibility, s.curated_version_id
      FROM app.skills s WHERE s.curation_status = 'pending' ORDER BY s.updated_at`,
   );
+}
+
+// 알림함: 내 글에 대한 검수 결과 + 다른 사람의 좋아요. 별도 알림 테이블 없이 기존 기록에서 만든다.
+export type Notice = { kind: "review" | "like"; created_at: Date; slug: string; name: string; decision: string | null; note: string | null; actor: string };
+
+export function listNotices(db: Db, userId: number, limit = 50) {
+  return db.query<Notice>(
+    `SELECT * FROM (
+       SELECT 'review' AS kind, r.created_at, s.slug, s.name, r.decision, r.note, u.name AS actor
+       FROM app.curation_reviews r JOIN app.skills s ON s.id = r.skill_id JOIN app.users u ON u.id = r.editor_id
+       WHERE s.owner_id = $1 AND r.editor_id <> $1
+       UNION ALL
+       SELECT 'like', l.created_at, s.slug, s.name, NULL, NULL, COALESCE(NULLIF(u.name, ''), u.email)
+       FROM app.likes l JOIN app.skills s ON s.id = l.skill_id JOIN app.users u ON u.id = l.user_id
+       WHERE s.owner_id = $1 AND l.user_id <> $1
+     ) n ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(200, limit))}`,
+    [userId],
+  );
+}
+
+export async function unreadNotices(db: Db, userId: number) {
+  return (await one<{ n: number }>(
+    db,
+    `SELECT (
+       (SELECT COUNT(*) FROM app.curation_reviews r JOIN app.skills s ON s.id = r.skill_id
+         WHERE s.owner_id = $1 AND r.editor_id <> $1 AND r.created_at > u.inbox_seen_at)
+     + (SELECT COUNT(*) FROM app.likes l JOIN app.skills s ON s.id = l.skill_id
+         WHERE s.owner_id = $1 AND l.user_id <> $1 AND l.created_at > u.inbox_seen_at)
+     )::int AS n FROM app.users u WHERE u.id = $1`,
+    [userId],
+  ))?.n ?? 0;
+}
+
+export async function countPending(db: Db) {
+  return (await one<{ n: number }>(db, "SELECT COUNT(*)::int AS n FROM app.skills WHERE curation_status = 'pending'"))!.n;
 }

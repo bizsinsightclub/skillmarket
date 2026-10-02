@@ -13,7 +13,8 @@
   - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
-- `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함.
+- `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요, 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
+- **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
 
 ## 에디터 픽 (큐레이티드와 통합 — 2026-10-02)
 
@@ -32,7 +33,7 @@
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
-     - 헤더 오른쪽 끝 메뉴 상자(`components/nav-menu.tsx`): 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · 에디터 픽 앰버). 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
+     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 검수대기함(에디터)/알림함(일반) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플). 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상 `public/media/the-lens-intro.mp4`(원본: Expert_Interview_Agent_v5_draft.mp4, 교체 시 파일만 바꾼다).
    - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
