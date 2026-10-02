@@ -74,6 +74,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
 
   return (
     <div>
+      {isLens && <span hidden data-tone="lens" />}
       <nav className="mb-5 flex gap-2 text-sm text-black/45">
         <Link href={listHref} className="hover:text-ink">{listLabel}</Link>/
         {skill.category_label !== listLabel && <><Link href={`${listHref}?category=${skill.category}`} className="hover:text-ink">{skill.category_label}</Link>/</>}

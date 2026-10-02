@@ -76,6 +76,7 @@ export default function SkillForm({
       }}
       className="flex max-w-3xl flex-col gap-5"
     >
+      {isLens && <span hidden data-tone="lens" /> /* 전문가 렌즈를 고르면 헤더도 퍼플 */}
       <label className={label}>
         무엇을 올리나요?
         <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} w-60`}>

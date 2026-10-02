@@ -32,6 +32,7 @@
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
+     - **헤더도 바뀐다**: 페이지가 `<span hidden data-tone="lens">` 표식을 그리면 `globals.css` 의 `body:has([data-tone=lens])` 규칙이 헤더를 라일락으로, '전문가' 메뉴·올리기 버튼을 퍼플로 바꾼다(JS 없음). 목록은 `data-tab` 표식으로 현재 메뉴를 강조.
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상 `public/media/the-lens-intro.mp4`(원본: Expert_Interview_Agent_v5_draft.mp4, 교체 시 파일만 바꾼다).
    - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.

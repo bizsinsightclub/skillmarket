@@ -17,7 +17,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {/* 떠 있는 유리 내비 (Raycast Store) */}
         <header className="sticky top-3 z-30 px-3 sm:px-6">
-          <nav className="glass mx-auto flex max-w-[1400px] items-center gap-6 rounded-2xl px-4 py-2.5 text-sm">
+          <nav className="site-nav glass mx-auto flex max-w-[1400px] items-center gap-6 rounded-2xl px-4 py-2.5 text-sm transition-colors">
             <Link href="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-lg font-extrabold tracking-tight">
               <CheilLogo className="h-[18px] w-auto" />
               <span aria-hidden className="h-4 w-px bg-black/20" />
@@ -27,8 +27,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <>
                 <div className="hidden items-center gap-1 font-medium text-black/60 md:flex">
                   {[["/skills", "스킬"], ["/plugins", "플러그인·MCP"], ["/experts", "전문가"], ["/picks", "에디터 픽"]].map(([href, label]) => (
-                    <Link key={href} href={href} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${href === "/experts" ? "text-lens-deep hover:bg-lens-bg" : "hover:bg-white/70 hover:text-ink"}`}>
-                      {href === "/experts" && <span className="h-1.5 w-1.5 rounded-full bg-lens" />}
+                    <Link key={href} href={href} className={`nav-link flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${href === "/experts" ? "text-lens-deep hover:bg-lens-bg" : "hover:bg-white/70 hover:text-ink"}`}>
+                      {href === "/experts" && <span className="nav-dot h-1.5 w-1.5 rounded-full bg-lens" />}
                       {label}
                     </Link>
                   ))}
@@ -41,7 +41,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <div className="ml-auto flex items-center gap-3 sm:ml-0">
                   {isEditor(user) && <Link href="/editor" className="hidden whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-xs font-bold sm:inline">검수 대기함</Link>}
                   <Link href="/me" className="max-w-32 truncate whitespace-nowrap font-medium text-black/70 hover:text-ink">{user.name || user.email}</Link>
-                  <Link href="/write" className="whitespace-nowrap rounded-xl bg-ink px-4 py-2 font-bold text-white hover:bg-black">올리기</Link>
+                  <Link href="/write" className="nav-upload whitespace-nowrap rounded-xl bg-ink px-4 py-2 font-bold text-white hover:bg-black">올리기</Link>
                 </div>
               </>
             )}
