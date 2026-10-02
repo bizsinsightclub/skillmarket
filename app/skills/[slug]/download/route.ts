@@ -16,7 +16,7 @@ export async function GET(req: Request, ctx: RouteContext<"/skills/[slug]/downlo
   const version = vid
     ? await one<{ id: number; version: string; zip_path: string }>(db, "SELECT id, version, zip_path FROM app.skill_versions WHERE skill_id = $1 AND id = $2", [skill.id, vid])
     : await one<{ id: number; version: string; zip_path: string }>(db, "SELECT id, version, zip_path FROM app.skill_versions WHERE skill_id = $1 ORDER BY id DESC LIMIT 1", [skill.id]);
-  if (!version) notFound();
+  if (!version?.zip_path) notFound(); // 링크형 글(플러그인·MCP)은 받을 zip 이 없다
 
   await db.query("INSERT INTO app.installs (skill_id, version_id, user_id) VALUES ($1, $2, $3)", [skill.id, version.id, viewer.id]);
   return new Response(null, {

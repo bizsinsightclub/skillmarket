@@ -77,3 +77,9 @@ input, select, textarea { background: rgb(255 255 255 / 0.9); }
 .md blockquote { border-left: 3px solid rgb(0 0 0 / 0.2); padding-left: 1em; color: rgb(0 0 0 / 0.6); }
 .md table { border-collapse: collapse; }
 .md th, .md td { border: 1px solid rgb(0 0 0 / 0.15); padding: 0.3em 0.6em; }
+
+/* 에디터 픽 조명 전환: 투명도·위치만 (블러 애니메이션 금지 — DESIGN.md 성능 규칙) */
+@keyframes spot-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}

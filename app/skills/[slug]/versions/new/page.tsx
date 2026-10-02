@@ -16,7 +16,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
   const { viewer } = await requireViewer();
   const db = getDb();
   const skill = await getSkill(db, viewer, { slug });
-  if (!skill || !canEdit(viewer, skill)) notFound();
+  if (!skill || !canEdit(viewer, skill) || !skill.needs_zip) notFound(); // 링크형 글엔 버전이 없다
   const [latest] = await listVersions(db, skill.id);
   return (
     <div>

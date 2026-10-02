@@ -7,7 +7,8 @@ import { getDb, one, type Db } from "./db";
 import { requireUser, requireViewer } from "./auth";
 import { normalizeEmail } from "./login";
 import { canEdit, getSkill, type Viewer } from "./queries";
-import { MAX_ZIP_BYTES, UploadError, parseSkillZip, slugify, sniffImage } from "./skill-zip";
+import { MAX_ZIP_BYTES, UploadError, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
+import { LINK_VERSION, readLinkFields } from "./link-post";
 import { download, remove, removeSkillFiles, signedUploadUrl, upload } from "./storage";
 
 export type FormState = { error?: string };
@@ -69,7 +70,17 @@ type Meta = {
   based_on_skill_id: number | null;
   visibility: "public" | "restricted";
   access: string[];
+  needs_zip: boolean; // false = 링크형 글(플러그인·MCP)
+  maker: string;
+  install_cmd: string;
+  homepage_url: string;
 };
+
+async function categoryNeedsZip(db: Db, slug: string) {
+  const cat = await one<{ needs_zip: boolean }>(db, "SELECT needs_zip FROM app.categories WHERE slug = $1", [slug]);
+  if (!cat) throw new UploadError("분류가 올바르지 않습니다");
+  return cat.needs_zip;
+}
 
 // 글쓰기·수정 공통 입력 검증. defaults 는 빈 칸일 때 채울 값(업로드 zip 의 frontmatter 등).
 async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Meta>, selfId?: number): Promise<Meta> {
@@ -78,14 +89,17 @@ async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Met
   const summary = text(form, "summary", 200) || defaults.summary?.slice(0, 200) || "";
 
   const category = text(form, "category", 20) || "etc";
-  if (!(await one(db, "SELECT 1 FROM app.categories WHERE slug = $1", [category]))) throw new UploadError("분류가 올바르지 않습니다");
+  const needs_zip = await categoryNeedsZip(db, category);
+  const link = needs_zip
+    ? { maker: "", install_cmd: "", homepage_url: "" }
+    : readLinkFields({ maker: text(form, "maker", 80), install_cmd: text(form, "install_cmd", 2000), homepage_url: text(form, "homepage_url", 500) });
 
   const tags = [...new Set(text(form, "tags", 300).split(",").map((t) => t.trim()).filter(Boolean))].slice(0, 10).join(",");
 
   const author_name = text(form, "author_name", 50) || defaults.author_name || "";
   const author_email = normalizeEmail(text(form, "author_email", 200) || defaults.author_email || "");
   if (!author_name) throw new UploadError("원작자 이름을 입력하세요");
-  if (!author_email) throw new UploadError("원작자 이메일은 사내 메일(samsung.com·cheil.com)이어야 합니다");
+  if (!author_email) throw new UploadError("원작자(추천인) 이메일은 사내 메일(samsung.com·cheil.com)이어야 합니다");
 
   // 원본 스킬: slug 또는 게시글 주소
   let based_on_skill_id: number | null = null;
@@ -111,7 +125,7 @@ async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Met
     if (access.length > MAX_ACCESS) throw new UploadError(`공개 대상은 ${MAX_ACCESS}명까지입니다`);
   }
 
-  return { name, summary, body_md: text(form, "body_md", 50000), category, tags, author_name, author_email, based_on_skill_id, visibility, access: [...new Set(access)] };
+  return { name, summary, body_md: text(form, "body_md", 50000), category, tags, author_name, author_email, based_on_skill_id, visibility, access: [...new Set(access)], needs_zip, ...link };
 }
 
 function readVersion(form: FormData) {
@@ -185,27 +199,33 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   const tmp = tmpPaths(form, user.id);
   let slug = "";
   try {
-    if (!tmp.zip) throw new UploadError("스킬 zip 파일을 선택하세요");
-    const parsed = parseSkillZip(await download(tmp.zip));
-    const meta = await readMeta(db, viewer, form, { name: parsed.name, summary: parsed.description, author_name: user.name, author_email: user.email });
-    const version = readVersion(form);
+    // 플러그인·MCP 같은 링크형 분류는 zip 없이 설치 명령·공식 페이지로 등록한다
+    let parsed: ParsedSkill | null = null;
+    if (await categoryNeedsZip(db, text(form, "category", 20) || "etc")) {
+      if (!tmp.zip) throw new UploadError("스킬 zip 파일을 선택하세요");
+      parsed = parseSkillZip(await download(tmp.zip));
+    }
+    const meta = await readMeta(db, viewer, form, { name: parsed?.name, summary: parsed?.description, author_name: user.name, author_email: user.email });
+    const version = parsed ? readVersion(form) : LINK_VERSION;
     const images = await readImages(tmp.images, 0);
     const demo = await readDemo(tmp.demo);
 
     let skillId = 0;
     try {
       await db.tx(async (t) => {
-        slug = await uniqueSlug(t, slugify(parsed.name));
+        slug = await uniqueSlug(t, slugify(parsed?.name ?? meta.name));
         skillId = (await one<{ id: number }>(
           t,
-          `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, based_on_skill_id, visibility)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-          [slug, meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, user.id, meta.based_on_skill_id, meta.visibility],
+          `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, based_on_skill_id, visibility,
+                                   maker, install_cmd, homepage_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+          [slug, meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, user.id, meta.based_on_skill_id, meta.visibility,
+           meta.maker, meta.install_cmd, meta.homepage_url],
         ))!.id;
-        const zipPath = `skills/${skillId}/versions/${version}.zip`;
-        await upload(zipPath, parsed.zip, "application/zip");
+        const zipPath = parsed ? `skills/${skillId}/versions/${version}.zip` : ""; // 링크형은 zip 없음
+        if (parsed) await upload(zipPath, parsed.zip, "application/zip");
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
-          skillId, version, zipPath, parsed.skillMd, user.id, "최초 등록",
+          skillId, version, zipPath, parsed?.skillMd ?? "", user.id, "최초 등록",
         ]);
         await saveSnapshots(t, skillId, images, demo);
         await saveAccess(t, skillId, meta.access);
@@ -230,6 +250,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
   const removedFiles: string[] = [];
   try {
     const meta = await readMeta(db, viewer, form, {}, skill.id);
+    if (meta.needs_zip !== skill.needs_zip) throw new UploadError("스킬(zip)과 플러그인·MCP 사이로는 분류를 바꿀 수 없습니다");
     const removeIds = new Set(form.getAll("remove_snapshot").map(Number));
     const current = await db.query<{ id: number; kind: string; path: string }>("SELECT id, kind, path FROM app.snapshots WHERE skill_id = $1", [skill.id]);
     const newDemo = await readDemo(tmp.demo);
@@ -240,8 +261,9 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
     await db.tx(async (t) => {
       await t.query(
         `UPDATE app.skills SET name = $1, summary = $2, body_md = $3, category = $4, tags = $5, author_name = $6, author_email = $7,
-           based_on_skill_id = $8, visibility = $9, updated_at = now() WHERE id = $10`,
-        [meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, meta.based_on_skill_id, meta.visibility, skill.id],
+           based_on_skill_id = $8, visibility = $9, maker = $10, install_cmd = $11, homepage_url = $12, updated_at = now() WHERE id = $13`,
+        [meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, meta.based_on_skill_id, meta.visibility,
+         meta.maker, meta.install_cmd, meta.homepage_url, skill.id],
       );
       for (const s of current) {
         if (!removeIds.has(s.id)) continue;
@@ -264,6 +286,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
 
 export async function addVersion(slug: string, _prev: FormState, form: FormData): Promise<FormState> {
   const { db, user, skill } = await editable(slug);
+  if (!skill.needs_zip) notFound(); // 링크형 글엔 버전이 없다
   const tmp = tmpPaths(form, user.id);
   try {
     if (!tmp.zip) throw new UploadError("스킬 zip 파일을 선택하세요");

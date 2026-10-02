@@ -15,7 +15,7 @@ export default function ReviewForm({ skillId, versionId, version, slug }: { skil
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <div className="flex gap-2">
         <button name="decision" value="approved" disabled={pending} className="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
-          v{version} 승인
+          {version ? `v${version} ` : ""}승인
         </button>
         <button name="decision" value="rejected" disabled={pending} className="rounded-xl px-4 py-2 text-sm font-bold ring-1 ring-black/20 disabled:opacity-50">
           반려

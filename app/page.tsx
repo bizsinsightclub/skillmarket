@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { listBoard } from "@/lib/queries";
 import { SkillGrid } from "@/components/skill-card";
+import PickSpotlight from "@/components/pick-spotlight";
 
 function Section({ title, sub, href, children }: { title: string; sub?: string; href: string; children: React.ReactNode }) {
   return (
@@ -23,7 +24,7 @@ export default async function HomePage() {
   const { viewer } = await requireViewer();
   const db = getDb();
   const [picks, curated, trending, latest] = await Promise.all([
-    listBoard(db, viewer, { tab: "pick", limit: 4 }),
+    listBoard(db, viewer, { tab: "pick", sort: "popular", limit: 12 }),
     listBoard(db, viewer, { tab: "curated", sort: "popular", limit: 8 }),
     listBoard(db, viewer, { sort: "trending", limit: 8 }),
     listBoard(db, viewer, { limit: 8 }),
@@ -32,32 +33,31 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* 원칙 7: 큰 제목 + 가운데 유리 검색 (Raycast Store). 뒤의 색 덩어리가 유리를 살린다 */}
-      <section className="relative isolate mb-16 overflow-hidden rounded-[2rem] px-6 py-16 text-center sm:py-20">
-        {/* 은은하게: 어두운 바탕에 아주 옅은 빛 번짐만 (색이 주인공이 되지 않게) */}
-        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(55%_70%_at_15%_10%,rgb(230_245_122/0.14),transparent_70%),radial-gradient(50%_70%_at_90%_20%,rgb(124_196_255/0.12),transparent_70%),radial-gradient(60%_60%_at_60%_110%,rgb(182_156_255/0.12),transparent_70%),linear-gradient(160deg,#1a1a1f,#202027)]" />
-        <p className="text-sm font-semibold text-accent">사내 Claude 스킬 마켓</p>
-        <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-extrabold leading-[1.15] tracking-[-0.03em] text-white sm:text-6xl">
-          동료들의 스킬을<br />함께 쓰고, 함께 키워요
-        </h1>
-        <p className="mx-auto mt-5 max-w-xl text-white/70">결과물 미리보기로 맞는 스킬을 찾고, 명령 한 줄로 설치하세요. 내가 만든 스킬도 원작자 이름과 함께 나눌 수 있어요.</p>
-        <form action="/skills" className="glass mx-auto mt-9 flex max-w-xl items-center gap-2 rounded-2xl p-2">
-          <input name="q" placeholder="회의록, 보고서 덱, 랜딩 페이지…" className="min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-base outline-none placeholder:text-black/45" />
-          <button className="shrink-0 rounded-xl bg-ink px-5 py-3 font-bold text-white">검색</button>
-        </form>
-        <div className="mt-6 flex justify-center gap-3 text-sm">
-          <Link href="/skills" className="rounded-xl bg-accent px-5 py-2.5 font-bold text-ink">전체 둘러보기</Link>
-          <Link href="/write" className="rounded-xl bg-white/10 px-5 py-2.5 font-bold text-white ring-1 ring-white/25 hover:bg-white/20">스킬 올리기</Link>
+      {/* 검색은 헤더 하나로. 첫 화면은 소개 한 줄 + 에디터 픽 조명 */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-black/45">사내 Claude 스킬 마켓</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">동료들의 스킬을 함께 쓰고, 함께 키워요</h1>
         </div>
-      </section>
+        <div className="flex gap-2 text-sm">
+          <Link href="/write" className="rounded-xl bg-ink px-4 py-2.5 font-bold text-white hover:bg-black">스킬 올리기</Link>
+          <Link href="/write?category=plugin" className="glass rounded-xl px-4 py-2.5 font-bold">플러그인 추천하기</Link>
+        </div>
+      </div>
 
-      {picks.total > 0 && (
-        <Section title="에디터 픽" sub="에디터가 직접 써 보고 고른 스킬" href="/skills?tab=pick">
-          <SkillGrid rows={picks.rows} />
-        </Section>
+      {picks.rows.length > 0 && (
+        <div className="mb-16">
+          <PickSpotlight
+            picks={picks.rows.map((r) => ({
+              slug: r.slug, name: r.name, summary: r.summary, thumb: r.thumb, category_label: r.category_label,
+              maker: r.maker, author_name: r.author_name, likes: r.likes, installs: r.installs,
+            }))}
+          />
+        </div>
       )}
+
       {curated.total > 0 && (
-        <Section title="큐레이티드" sub="검수를 통과한 스킬" href="/skills?tab=curated&sort=popular">
+        <Section title="큐레이티드" sub="검수를 통과한 스킬·플러그인" href="/skills?tab=curated&sort=popular">
           <SkillGrid rows={curated.rows} />
         </Section>
       )}

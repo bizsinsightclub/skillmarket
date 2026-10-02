@@ -54,6 +54,9 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   const images = snapshots.filter((s) => s.kind === "image");
   const demo = snapshots.find((s) => s.kind === "demo");
   const ids = { skill_id: skill.id, slug: skill.slug };
+  // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
+  const isLink = !skill.needs_zip;
+  const vl = (v: string) => (isLink ? "" : `v${v}`);
 
   return (
     <div>
@@ -93,12 +96,12 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
           <div className="glass rounded-3xl p-7">
             <div className="mb-3 flex flex-wrap gap-1.5">
               {skill.editor_pick ? <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽</span> : null}
-              {curated && <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold">검수 완료 v{curated.version}</span>}
+              {curated && <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold">검수 완료 {vl(curated.version)}</span>}
               {skill.visibility === "restricted" && <span className="rounded-full bg-ink px-3 py-1 text-xs text-white">비공개</span>}
             </div>
             <div className="flex items-start gap-3">
               <h1 className="mr-auto text-3xl font-extrabold leading-tight tracking-[-0.03em]">
-                {skill.name} <span className="align-middle text-sm font-normal text-black/40">v{latest.version}</span>
+                {skill.name} {!isLink && <span className="align-middle text-sm font-normal text-black/40">v{latest.version}</span>}
               </h1>
               <form action={toggleLike.bind(null, skill.slug)}>
                 <button title="좋아요" className={`grid h-11 w-11 place-items-center rounded-full text-lg ring-1 transition ${stats.liked ? "bg-ink text-accent ring-ink" : "ring-black/15 hover:ring-black/40"}`}>
@@ -110,16 +113,27 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
 
             <div className="mt-5 flex items-center gap-4 text-sm text-black/60">
               <span>♥ {stats.likes}</span>
-              <span>↓ {stats.installs}</span>
+              {!isLink && <span>↓ {stats.installs}</span>}
               <span>업데이트 {fmtDate(skill.updated_at)}</span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-2">
-              <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
-              <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
-                ZIP 받기
-              </a>
-            </div>
+            {isLink ? (
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                {skill.install_cmd && <CopyButton text={skill.install_cmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />}
+                {skill.homepage_url && (
+                  <a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className={`rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white ${skill.install_cmd ? "" : "col-span-2"}`}>
+                    공식 페이지 ↗
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
+                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
+                  ZIP 받기
+                </a>
+              </div>
+            )}
             {curated && curated.id !== latest.id && (
               <a href={`/skills/${skill.slug}/download?v=${curated.id}`} className="mt-2 block text-center text-xs text-black/55 underline">
                 검수된 v{curated.version} 받기
@@ -127,8 +141,14 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             )}
 
             <dl className="mt-6 space-y-2.5 border-t border-black/5 pt-5 text-sm">
+              {isLink && (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-black/45">만든 곳</dt>
+                  <dd className="font-semibold">{skill.maker}</dd>
+                </div>
+              )}
               <div className="flex gap-3">
-                <dt className="w-16 shrink-0 text-black/45">원작자</dt>
+                <dt className="w-16 shrink-0 text-black/45">{isLink ? "추천인" : "원작자"}</dt>
                 <dd><Link href={`/u/${encodeURIComponent(skill.author_email)}`} className="font-semibold hover:underline">{skill.author_name}</Link></dd>
               </div>
               {basedOn && (
@@ -143,10 +163,12 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   <dd>{owner.name || owner.email}</dd>
                 </div>
               )}
-              <div className="flex gap-3">
-                <dt className="w-16 shrink-0 text-black/45">기여자</dt>
-                <dd>{contributors.join(", ")}</dd>
-              </div>
+              {!isLink && (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-black/45">기여자</dt>
+                  <dd>{contributors.join(", ")}</dd>
+                </div>
+              )}
               <div className="flex gap-3">
                 <dt className="w-16 shrink-0 text-black/45">등록</dt>
                 <dd>{fmtDate(skill.created_at)}</dd>
@@ -164,7 +186,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             {editable && (
               <div className="mt-6 flex gap-2 border-t border-black/5 pt-5 text-sm">
                 <Link href={`/skills/${skill.slug}/edit`} className="rounded-full px-4 py-2 ring-1 ring-black/15 hover:ring-black/40">수정</Link>
-                <Link href={`/skills/${skill.slug}/versions/new`} className="rounded-full px-4 py-2 ring-1 ring-black/15 hover:ring-black/40">새 버전</Link>
+                {!isLink && <Link href={`/skills/${skill.slug}/versions/new`} className="rounded-full px-4 py-2 ring-1 ring-black/15 hover:ring-black/40">새 버전</Link>}
                 <details className="relative ml-auto">
                   <summary className="cursor-pointer list-none rounded-full px-4 py-2 text-red-600 ring-1 ring-red-200">삭제</summary>
                   <form action={deleteSkill.bind(null, skill.slug)} className="glass absolute right-0 z-10 mt-2 w-60 rounded-2xl p-4">
@@ -187,26 +209,47 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </Block>
           )}
 
+          {isLink ? (
+            <Block title="설치 방법">
+              {skill.install_cmd ? (
+                <>
+                  <p className="mb-3 text-sm text-black/60">Claude Code 에서 차례로 입력하세요.</p>
+                  <div className="flex items-start gap-2">
+                    <pre className="min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-xl bg-paper p-3 text-sm">{skill.install_cmd}</pre>
+                    <CopyButton text={skill.install_cmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-black/60">공식 페이지의 안내를 따르세요.</p>
+              )}
+              {skill.homepage_url && (
+                <a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-sm underline">{skill.homepage_url}</a>
+              )}
+            </Block>
+          ) : (
+            <>
           <Block title="설치 방법">
-            <p className="mb-3 text-sm text-black/60">ZIP 을 받은 폴더에서 실행하세요.</p>
-            <p className="mb-1 text-xs text-black/45">macOS · Linux · Git Bash</p>
-            <div className="mb-4 flex items-start gap-2">
-              <pre className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-paper p-3 text-sm">{unixCmd}</pre>
-              <CopyButton text={unixCmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
-            </div>
-            <p className="mb-1 text-xs text-black/45">Windows PowerShell</p>
-            <div className="flex items-start gap-2">
-              <pre className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-paper p-3 text-sm">{winCmd}</pre>
-              <CopyButton text={winCmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
-            </div>
-          </Block>
+              <p className="mb-3 text-sm text-black/60">ZIP 을 받은 폴더에서 실행하세요.</p>
+              <p className="mb-1 text-xs text-black/45">macOS · Linux · Git Bash</p>
+              <div className="mb-4 flex items-start gap-2">
+                <pre className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-paper p-3 text-sm">{unixCmd}</pre>
+                <CopyButton text={unixCmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
+              </div>
+              <p className="mb-1 text-xs text-black/45">Windows PowerShell</p>
+              <div className="flex items-start gap-2">
+                <pre className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-paper p-3 text-sm">{winCmd}</pre>
+                <CopyButton text={winCmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
+              </div>
+            </Block>
 
-          <Block title={`SKILL.md (v${latest.version})`}>
-            <details>
-              <summary className="cursor-pointer text-sm text-black/60">원문 펼치기</summary>
-              <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{latest.skill_md}</pre>
-            </details>
-          </Block>
+            <Block title={`SKILL.md (v${latest.version})`}>
+              <details>
+                <summary className="cursor-pointer text-sm text-black/60">원문 펼치기</summary>
+                <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{latest.skill_md}</pre>
+              </details>
+            </Block>
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-6">
@@ -214,27 +257,27 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             <Block title="큐레이션">
               <p className="text-sm">
                 {STATUS[skill.curation_status] ?? "검수 요청 안 함"}
-                {curated && <span className="text-black/50"> · 큐레이티드에 v{curated.version} 게시 중</span>}
+                {curated && <span className="text-black/50"> · 큐레이티드에 {vl(curated.version)} 게시 중</span>}
               </p>
               {review?.decision === "rejected" && skill.curation_status === "rejected" && (
-                <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">반려 사유 (v{review.version}, {review.editor_name}): {review.note}</p>
+                <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">반려 사유 ({vl(review.version) || "등록본"}, {review.editor_name}): {review.note}</p>
               )}
               {skill.curation_status !== "pending" && latest.id !== skill.curated_version_id && (
                 <form action={requestCuration.bind(null, skill.slug)} className="mt-3">
-                  <button className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">v{latest.version} 검수 요청</button>
+                  <button className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">{vl(latest.version)} 검수 요청</button>
                 </form>
               )}
               {viewer.editor && (
                 <div className="mt-5 flex flex-col gap-3 border-t border-black/5 pt-5 text-sm">
                   <p className="font-semibold">에디터</p>
-                  <ReviewForm skillId={skill.id} versionId={latest.id} version={latest.version} slug={skill.slug} />
+                  <ReviewForm skillId={skill.id} versionId={latest.id} version={isLink ? "" : latest.version} slug={skill.slug} />
                   <div className="flex flex-wrap gap-2">
                     <form action={pickAction}>
                       <input type="hidden" name="skill_id" value={ids.skill_id} />
                       <input type="hidden" name="slug" value={ids.slug} />
                       <input type="hidden" name="version_id" value={skill.curated_version_id ?? latest.id} />
                       <input type="hidden" name="on" value={skill.editor_pick ? "0" : "1"} />
-                      <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">{skill.editor_pick ? "에디터 픽 해제" : `에디터 픽 지정${curated ? "" : ` (v${latest.version} 승인 포함)`}`}</button>
+                      <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">{skill.editor_pick ? "에디터 픽 해제" : `에디터 픽 지정${curated ? "" : isLink ? " (승인 포함)" : ` (v${latest.version} 승인 포함)`}`}</button>
                     </form>
                     {curated && (
                       <form action={uncurateAction}>
@@ -255,6 +298,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </Block>
           )}
 
+          {!isLink && (
           <Block title="버전 이력">
             <ul className="divide-y divide-black/5 text-sm">
               {versions.map((v) => (
@@ -271,6 +315,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               ))}
             </ul>
           </Block>
+          )}
 
           {derived.length > 0 && (
             <Block title={`파생 스킬 ${derived.length}개`}>

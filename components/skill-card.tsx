@@ -50,7 +50,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
         </div>
         {/* 원칙 6: 이미지 위 수치는 어두운 유리 칩 */}
         <div className="glass-dark absolute bottom-3 right-3 flex gap-2.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums">
-          <span>↓ {s.installs}</span>
+          {!s.maker && <span>↓ {s.installs}</span>/* 링크형(플러그인·MCP)은 내려받기가 없다 */}
           <span>♥ {s.likes}</span>
         </div>
       </div>
@@ -59,7 +59,7 @@ export default function SkillCard({ s }: { s: BoardRow }) {
         <span className="shrink-0 text-xs font-medium text-black/45">{s.category_label}</span>
       </div>
       <p className="mt-0.5 truncate px-0.5 text-sm text-black/55">{s.summary || " "}</p>
-      <p className="mt-1 px-0.5 text-xs text-black/45">by {s.author_name}</p>
+      <p className="mt-1 px-0.5 text-xs text-black/45">{s.maker ? `by ${s.maker} · 추천 ${s.author_name}` : `by ${s.author_name}`}</p>
     </Link>
   );
 }

@@ -21,6 +21,7 @@ export type BoardRow = {
   category_label: string;
   author_name: string;
   author_email: string;
+  maker: string;
   visibility: "public" | "restricted";
   curated: boolean;
   editor_pick: boolean;
@@ -60,7 +61,7 @@ export async function listBoard(
   const whereSql = where.join(" AND ");
 
   const rows = await db.query<BoardRow>(
-    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email,
+    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker,
             s.visibility, (s.curated_version_id IS NOT NULL) AS curated, s.editor_pick, s.created_at,
             (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS likes,
             (SELECT COUNT(*)::int FROM app.installs i WHERE i.skill_id = s.id) AS installs,
@@ -78,7 +79,7 @@ export async function listBoard(
 }
 
 export function listCategories(db: Db) {
-  return db.query<{ slug: string; label: string }>("SELECT slug, label FROM app.categories ORDER BY sort_order");
+  return db.query<{ slug: string; label: string; needs_zip: boolean }>("SELECT slug, label, needs_zip FROM app.categories ORDER BY sort_order");
 }
 
 export type Skill = {
@@ -89,7 +90,11 @@ export type Skill = {
   body_md: string;
   category: string;
   category_label: string;
+  needs_zip: boolean; // false = 링크형 글(플러그인·MCP)
   tags: string;
+  maker: string;
+  install_cmd: string;
+  homepage_url: string;
   author_name: string;
   author_email: string;
   owner_id: number;
@@ -108,7 +113,7 @@ export function getSkill(db: Db, v: Viewer, key: { slug: string } | { id: number
   const cond = "slug" in key ? `s.slug = ${p.add(key.slug)}` : `s.id = ${p.add(key.id)}`;
   return one<Skill>(
     db,
-    `SELECT s.*, c.label AS category_label FROM app.skills s JOIN app.categories c ON c.slug = s.category
+    `SELECT s.*, c.label AS category_label, c.needs_zip FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${cond} AND ${visible(v, p)}`,
     p.values,
   );

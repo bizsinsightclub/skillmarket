@@ -30,6 +30,7 @@ export default async function EditPage({ params }: PageProps<"/skills/[slug]/edi
           name: skill.name, summary: skill.summary, body_md: skill.body_md, category: skill.category, tags: skill.tags,
           author_name: skill.author_name, author_email: skill.author_email, based_on: basedOn?.slug ?? "",
           visibility: skill.visibility, access: access.join("\n"),
+          maker: skill.maker, install_cmd: skill.install_cmd, homepage_url: skill.homepage_url,
         }}
       />
     </div>

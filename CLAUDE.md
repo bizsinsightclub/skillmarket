@@ -8,7 +8,7 @@
 
 ## 화면
 
-- `/` 홈 — 소개 배너 + 섹션별 카드: 에디터 픽 · 큐레이티드 · 요즘 뜨는(최근 7일 활동 있는 것만) · 새로 올라온.
+- `/` 홈 — 소개 한 줄 + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션별 카드: 큐레이티드 · 요즘 뜨는(최근 7일 활동 있는 것만) · 새로 올라온. 검색은 헤더 하나만.
 - `/skills` 전체 목록 — 탭(전체/큐레이티드/에디터 픽), 분류 칩, 정렬(최신·트렌딩·인기), 검색(`?q=`, 헤더 검색창), 카드 그리드, 페이지네이션(20개).
   - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
@@ -30,6 +30,12 @@
 - 승인 후 새 버전이 올라가도 큐레이티드는 **승인된 버전**을 보여주고 설치시킨다. 새 버전은 다시 검수 요청해야 교체된다.
 
 ## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다 — 댓글 등)
+
+0. **두 종류의 글** — 분류(`categories.needs_zip`)가 정한다. 코드에 분류 이름을 하드코딩하지 않는다.
+   - 스킬(zip): 아래 1~6 전부.
+   - **링크형(플러그인·MCP 서버)**: zip 없이 `install_cmd`(설치 명령) + `homepage_url`(http/https 만) + `maker`(만든 곳, 외부). 크레딧의 원작자 칸은 **추천인**. 다운로드·새 버전·SKILL.md 없음, 설치 수 표시 안 함.
+   - 링크형도 큐레이션 모델을 그대로 쓰려고 `version='link'`, `zip_path=''` 인 '등록본' 버전 한 줄을 만든다(`lib/link-post.ts`). 수정해도 새 버전이 생기지 않는다.
+   - 수정할 때 스킬 ↔ 링크형 사이로 분류를 바꿀 수 없다.
 
 1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다.
    - 서버는 zip 을 디스크에 풀지 않는다. 메모리에서 검사한 뒤 **다시 묶어서**(정규 파일만, SKILL.md 루트) 저장 → 심볼릭 링크·이상한 속성이 설치자에게 가지 않는다.
@@ -126,6 +132,7 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 ```
 app/                  라우트
 lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그레이션 실행기
+                      link-post.ts 링크형 글(플러그인·MCP) 입력 검증
                       test-db.ts   테스트용 PGlite(메모리 Postgres) Db
                       auth.ts      getCurrentUser / requireViewer / isEditor
                       sign.ts      HMAC 서명·세션 토큰        login.ts  도메인 검사·인증 코드
@@ -133,7 +140,7 @@ lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그�
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
-components/           skill-card(카드·표지·그리드), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
+components/           skill-card(카드·표지·그리드), pick-spotlight(홈 에디터 픽 회전), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
 db/migrations/        *.sql (Postgres, app 스키마)
 ```

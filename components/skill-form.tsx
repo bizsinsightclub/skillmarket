@@ -5,6 +5,7 @@ import type { FormState } from "@/lib/skill-actions";
 import { uploadForm } from "./direct-upload";
 
 type Snapshot = { id: number; kind: "image" | "demo"; path: string };
+type Category = { slug: string; label: string; needs_zip: boolean };
 
 export type SkillFormValues = {
   name: string;
@@ -17,11 +18,15 @@ export type SkillFormValues = {
   based_on: string;
   visibility: "public" | "restricted";
   access: string;
+  maker: string;
+  install_cmd: string;
+  homepage_url: string;
 };
 
 const input = "rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30";
 const label = "flex flex-col gap-1 text-sm";
 const hint = "text-xs text-black/50";
+const legend = "rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white";
 
 export default function SkillForm({
   mode,
@@ -32,16 +37,24 @@ export default function SkillForm({
 }: {
   mode: "create" | "edit";
   action: (prev: FormState, form: FormData) => Promise<FormState>;
-  categories: { slug: string; label: string }[];
+  categories: Category[];
   values: SkillFormValues;
   snapshots?: Snapshot[];
 }) {
   const [state, dispatch, pending] = useActionState(action, {});
   const [visibility, setVisibility] = useState(values.visibility);
+  const [category, setCategory] = useState(values.category);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const error = uploadError ?? state.error;
   const busy = uploading || pending;
+
+  // 분류가 zip 을 받지 않으면(플러그인·MCP) 링크형 글: 설치 명령·공식 페이지·제작자로 등록
+  const needsZip = (slug: string) => categories.find((c) => c.slug === slug)?.needs_zip ?? true;
+  const isLink = !needsZip(category);
+  // 수정할 때는 스킬 ↔ 링크형 사이로 못 바꾼다 → 같은 종류 분류만 보여 준다
+  const options = mode === "edit" ? categories.filter((c) => c.needs_zip === needsZip(values.category)) : categories;
+  const creditWho = isLink ? "추천인" : "원작자";
 
   return (
     // form action 대신 onSubmit: 파일은 Storage 로 먼저 올리고, 검증 실패 시 입력값(파일 포함)이 초기화되지 않게
@@ -57,9 +70,17 @@ export default function SkillForm({
       }}
       className="flex max-w-3xl flex-col gap-5"
     >
-      {mode === "create" && (
+      <label className={label}>
+        무엇을 올리나요?
+        <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} w-60`}>
+          {options.map((c) => <option key={c.slug} value={c.slug}>{c.needs_zip ? `스킬 · ${c.label}` : c.label}</option>)}
+        </select>
+        <span className={hint}>{isLink ? "추천하는 플러그인·MCP 를 설치 방법과 함께 소개합니다. 파일은 올리지 않습니다." : "SKILL.md 가 든 스킬 폴더를 올립니다."}</span>
+      </label>
+
+      {mode === "create" && !isLink && (
         <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
-          <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">스킬 파일</legend>
+          <legend className={legend}>스킬 파일</legend>
           <label className={label}>
             스킬 폴더 zip *
             <input name="zip" type="file" accept=".zip" required className={input} />
@@ -72,61 +93,74 @@ export default function SkillForm({
         </fieldset>
       )}
 
+      {isLink && (
+        <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+          <legend className={legend}>설치 정보</legend>
+          <label className={label}>
+            만든 곳 *
+            <input name="maker" defaultValue={values.maker} maxLength={80} required placeholder="예: Anthropic, Vercel, 개인 개발자 이름" className={input} />
+          </label>
+          <label className={label}>
+            설치 명령
+            <textarea name="install_cmd" defaultValue={values.install_cmd} rows={3} className={`${input} font-mono text-sm`} placeholder={"/plugin marketplace add owner/repo\n/plugin install name@marketplace"} />
+          </label>
+          <label className={label}>
+            공식 페이지
+            <input name="homepage_url" type="url" defaultValue={values.homepage_url} placeholder="https://github.com/…" className={input} />
+            <span className={hint}>설치 명령과 공식 페이지 중 하나는 꼭 넣어 주세요.</span>
+          </label>
+        </fieldset>
+      )}
+
       <label className={label}>
-        이름{mode === "edit" && " *"}
-        <input name="name" defaultValue={values.name} maxLength={80} required={mode === "edit"} className={input} />
-        {mode === "create" && <span className={hint}>비우면 SKILL.md 의 name 을 씁니다.</span>}
+        이름{(mode === "edit" || isLink) && " *"}
+        <input name="name" defaultValue={values.name} maxLength={80} required={mode === "edit" || isLink} className={input} />
+        {mode === "create" && !isLink && <span className={hint}>비우면 SKILL.md 의 name 을 씁니다.</span>}
       </label>
       <label className={label}>
         한 줄 요약
         <input name="summary" defaultValue={values.summary} maxLength={200} className={input} />
-        {mode === "create" && <span className={hint}>비우면 SKILL.md 의 description 을 씁니다.</span>}
+        {mode === "create" && !isLink && <span className={hint}>비우면 SKILL.md 의 description 을 씁니다.</span>}
       </label>
-      <div className="flex gap-4">
-        <label className={label}>
-          분류
-          <select name="category" defaultValue={values.category} className={input}>
-            {categories.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
-          </select>
-        </label>
-        <label className={`${label} flex-1`}>
-          태그
-          <input name="tags" defaultValue={values.tags} placeholder="쉼표로 구분, 최대 10개" className={input} />
-        </label>
-      </div>
+      <label className={label}>
+        태그
+        <input name="tags" defaultValue={values.tags} placeholder="쉼표로 구분, 최대 10개" className={input} />
+      </label>
       <label className={label}>
         설명 (마크다운)
         <textarea name="body_md" defaultValue={values.body_md} rows={10} className={`${input} font-mono text-sm`} placeholder="언제 쓰는지, 어떻게 쓰는지, 주의할 점" />
       </label>
 
       <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
-        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">원작자 크레딧</legend>
+        <legend className={legend}>{isLink ? "추천인" : "원작자 크레딧"}</legend>
         <div className="flex gap-4">
           <label className={`${label} flex-1`}>
-            원작자 이름 *
+            {creditWho} 이름 *
             <input name="author_name" defaultValue={values.author_name} maxLength={50} required className={input} />
           </label>
           <label className={`${label} flex-1`}>
-            원작자 이메일 *
+            {creditWho} 이메일 *
             <input name="author_email" type="email" defaultValue={values.author_email} required className={input} />
           </label>
         </div>
-        <label className={label}>
-          원본 스킬 (다른 스킬을 고쳐 만든 경우)
-          <input name="based_on" defaultValue={values.based_on} placeholder="원본 스킬 주소 또는 slug" className={input} />
-        </label>
+        {!isLink && (
+          <label className={label}>
+            원본 스킬 (다른 스킬을 고쳐 만든 경우)
+            <input name="based_on" defaultValue={values.based_on} placeholder="원본 스킬 주소 또는 slug" className={input} />
+          </label>
+        )}
       </fieldset>
 
       <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
-        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">스냅샷</legend>
+        <legend className={legend}>스냅샷</legend>
         {snapshots.length > 0 && (
           <div className="flex flex-wrap gap-3">
             {snapshots.map((s) => (
               <label key={s.id} className="flex flex-col items-center gap-1 text-xs">
                 {s.kind === "image" ? (
-                  <img src={`/files/${s.path}`} alt="" className="h-20 w-32 rounded border object-cover" />
+                  <img src={`/files/${s.path}`} alt="" className="h-20 w-32 rounded-lg border object-cover" />
                 ) : (
-                  <span className="flex h-20 w-32 items-center justify-center rounded border bg-black/5">데모 HTML</span>
+                  <span className="flex h-20 w-32 items-center justify-center rounded-lg border bg-black/5">데모 HTML</span>
                 )}
                 <span><input type="checkbox" name="remove_snapshot" value={s.id} /> 삭제</span>
               </label>
@@ -134,19 +168,21 @@ export default function SkillForm({
           </div>
         )}
         <label className={label}>
-          결과물 이미지 추가
+          {isLink ? "소개 이미지 추가" : "결과물 이미지 추가"}
           <input name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className={input} />
           <span className={hint}>png·jpg·webp·gif, 장당 5MB, 최대 10장. 첫 장이 목록 썸네일이 됩니다.</span>
         </label>
-        <label className={label}>
-          데모 HTML {snapshots.some((s) => s.kind === "demo") && "(올리면 기존 데모를 바꿉니다)"}
-          <input name="demo" type="file" accept=".html,.htm" className={input} />
-          <span className={hint}>스킬로 만든 결과물 HTML. 격리된 화면에서 보여줍니다. 최대 4MB.</span>
-        </label>
+        {!isLink && (
+          <label className={label}>
+            데모 HTML {snapshots.some((s) => s.kind === "demo") && "(올리면 기존 데모를 바꿉니다)"}
+            <input name="demo" type="file" accept=".html,.htm" className={input} />
+            <span className={hint}>스킬로 만든 결과물 HTML. 격리된 화면에서 보여줍니다. 최대 4MB.</span>
+          </label>
+        )}
       </fieldset>
 
       <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
-        <legend className="rounded-full bg-ink px-3 py-0.5 text-xs font-bold text-white">공개 범위</legend>
+        <legend className={legend}>공개 범위</legend>
         <div className="flex gap-6 text-sm">
           <label><input type="radio" name="visibility" value="public" checked={visibility === "public"} onChange={() => setVisibility("public")} /> 전사 공개</label>
           <label><input type="radio" name="visibility" value="restricted" checked={visibility === "restricted"} onChange={() => setVisibility("restricted")} /> 지정한 사람만</label>
