@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
-import { normalizeEmail, issueCode, verifyCode, MAX_ATTEMPTS, CODE_TTL_MS } from "./login.ts";
+import { normalizeEmail, issueCode, verifyCode, safeNext, MAX_ATTEMPTS, CODE_TTL_MS, MAX_FAILS_PER_DAY, MAX_SENDS_PER_IP_HOUR } from "./login.ts";
 
 const D = ["samsung.com", "cheil.com"];
 
@@ -44,4 +44,32 @@ test("코드: 이전 코드는 새 코드 발급 후 무효, 발송 한도", asy
   await issueCode(db, "a@samsung.com", "k", 2);
   assert.equal(await issueCode(db, "a@samsung.com", "k", 3), null); // 10분에 3통
   assert.notEqual(await issueCode(db, "a@samsung.com", "k", CODE_TTL_MS + 1), null);
+});
+
+test("무작위 대입: 하루 틀린 코드가 한도에 닿으면 새 코드를 주지 않는다", async () => {
+  const db = await testDb();
+  let now = 0;
+  let fails = 0;
+  while (fails < MAX_FAILS_PER_DAY) {
+    const code = (await issueCode(db, "v@samsung.com", "k", now))!;
+    const wrong = code === "000000" ? "000001" : "000000";
+    for (let i = 0; i < MAX_ATTEMPTS && fails < MAX_FAILS_PER_DAY; i++, fails++) await verifyCode(db, "v@samsung.com", wrong, "k", now);
+    now += CODE_TTL_MS + 1; // 10분 창 한도는 비켜 간다
+  }
+  assert.equal(await issueCode(db, "v@samsung.com", "k", now), null);
+  assert.notEqual(await issueCode(db, "v@samsung.com", "k", now + 24 * 60 * 60 * 1000), null); // 다음 날 풀림
+});
+
+test("메일 폭탄: 같은 IP 는 주소를 바꿔도 시간당 한도", async () => {
+  const db = await testDb();
+  for (let i = 0; i < MAX_SENDS_PER_IP_HOUR; i++) assert.notEqual(await issueCode(db, `u${i}@samsung.com`, "k", 0, "1.2.3.4"), null);
+  assert.equal(await issueCode(db, "z@samsung.com", "k", 1, "1.2.3.4"), null);
+  assert.notEqual(await issueCode(db, "z@samsung.com", "k", 1, "5.6.7.8"), null);
+});
+
+test("로그인 후 이동: 같은 사이트 경로만", () => {
+  assert.equal(safeNext("/skills?q=a#x"), "/skills?q=a#x");
+  for (const bad of ["//evil.com", "/\\evil.com", "/\t/evil.com", "/\n/evil.com", "https://evil.com", "javascript:alert(1)", ""]) {
+    assert.equal(safeNext(bad), "/", JSON.stringify(bad));
+  }
 });

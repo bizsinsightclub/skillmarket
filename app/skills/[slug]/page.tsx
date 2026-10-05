@@ -56,8 +56,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   const latest = versions[0];
   const curated = versions.find((v) => v.id === skill.curated_version_id);
   const contributors = [...new Map(versions.map((v) => [v.uploader_email, v.uploader_name || v.uploader_email])).values()];
-  const dir = installDirName(latest.skill_md, skill.slug);
-  const zipName = `${skill.slug}-${latest.version}.zip`;
+  // 에디터 픽이면 설치 버튼은 검수받은 버전을 준다(승인 뒤 올라온 새 버전은 검수 전)
+  const shown = curated ?? latest;
+  const dir = installDirName(shown.skill_md, skill.slug);
+  const zipName = `${skill.slug}-${shown.version}.zip`;
   const unixCmd = `mkdir -p ~/.claude/skills/${dir} && unzip -o ${zipName} -d ~/.claude/skills/${dir}`;
   const winCmd = `Expand-Archive ${zipName} -DestinationPath $HOME\\.claude\\skills\\${dir} -Force`;
   const tags = skill.tags ? skill.tags.split(",") : [];
@@ -67,7 +69,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
   const isLink = skill.post_type === "link";
   const isLens = skill.post_type === "lens";
-  const lensPrompt = isLens ? lensPromptOf(latest.skill_md) : "";
+  const lensPrompt = isLens ? lensPromptOf(shown.skill_md) : "";
   const bands = skill.bands ? skill.bands.split(",") : [];
   const vl = (v: string) => (isLink ? "" : `v${v}`);
   const [listHref, listLabel] = isLink ? ["/plugins", "플러그인·MCP"] : isLens ? ["/experts", "전문가"] : ["/skills", "스킬"];
@@ -115,7 +117,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </div>
             <div className="flex items-start gap-3">
               <h1 className="mr-auto text-3xl font-extrabold leading-tight tracking-[-0.03em]">
-                {skill.name} {!isLink && <span className="align-middle text-sm font-normal text-black/40">v{latest.version}</span>}
+                {skill.name} {!isLink && <span className="align-middle text-sm font-normal text-black/40">v{shown.version}</span>}
               </h1>
               <form action={toggleLike.bind(null, skill.slug)}>
                 <button title="좋아요" className={`grid h-11 w-11 place-items-center rounded-full text-lg ring-1 transition ${stats.liked ? "bg-ink text-accent ring-ink" : "ring-black/15 hover:ring-black/40"}`}>
@@ -155,22 +157,23 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </div>
             ) : isLens ? (
               <div className="mt-6 grid grid-cols-2 gap-2">
-                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-lens px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-lens-deep">렌즈 파일 받기</a>
+                <a href={`/skills/${skill.slug}/download?v=${shown.id}`} className="rounded-2xl bg-lens px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-lens-deep">렌즈 파일 받기</a>
                 <CopyButton text={lensPrompt} label="프롬프트 복사" className="rounded-2xl bg-white/80 px-4 py-3.5 text-sm font-bold ring-1 ring-black/10 hover:bg-white" />
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-2 gap-2">
                 <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
-                <a href={`/skills/${skill.slug}/download`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
+                <a href={`/skills/${skill.slug}/download?v=${shown.id}`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
                   ZIP 받기
                 </a>
               </div>
             )}
             {curated && curated.id !== latest.id && (
-              <a href={`/skills/${skill.slug}/download?v=${curated.id}`} className="mt-2 block text-center text-xs text-black/55 underline">
-                에디터 픽 버전 v{curated.version} 받기
+              <a href={`/skills/${skill.slug}/download?v=${latest.id}`} className="mt-2 block text-center text-xs text-black/55 underline">
+                최신 v{latest.version} 받기 (검수 전)
               </a>
             )}
+            {!curated && <p className="mt-2 text-center text-xs text-black/50">에디터 검수 전 글입니다. 설치하기 전에 내용을 확인하세요.</p>}
 
             <dl className="mt-6 space-y-2.5 border-t border-black/5 pt-5 text-sm">
               {isLens && (
@@ -272,10 +275,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   프롬프트를 복사해 다른 Claude 대화의 시스템 프롬프트로 써 보세요.
                 </p>
               </Block>
-              <Block title={`렌즈 원문 (v${latest.version})`}>
+              <Block title={`렌즈 원문 (v${shown.version})`}>
                 <details>
                   <summary className="cursor-pointer text-sm text-black/60">원문 펼치기</summary>
-                  <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{latest.skill_md}</pre>
+                  <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{shown.skill_md}</pre>
                 </details>
               </Block>
             </>
@@ -295,10 +298,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </div>
             </Block>
 
-            <Block title={`SKILL.md (v${latest.version})`}>
+            <Block title={`SKILL.md (v${shown.version})`}>
               <details>
                 <summary className="cursor-pointer text-sm text-black/60">원문 펼치기</summary>
-                <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{latest.skill_md}</pre>
+                <pre className="mt-3 max-h-[600px] overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-4 text-sm">{shown.skill_md}</pre>
               </details>
             </Block>
             </>

@@ -31,6 +31,10 @@ const EXT = { zip: "zip", images: "img", demo: "html", lens: "md" } as const;
 
 export async function prepareUpload(specs: UploadSpec[]): Promise<{ tickets?: UploadTicket[]; error?: string }> {
   const user = await requireUser();
+  // Server Action 인자는 브라우저가 마음대로 보낼 수 있다 → 모르는 field 가 섞이면 개수 제한을 비켜 간다
+  if (!Array.isArray(specs) || specs.some((s) => !Object.hasOwn(LIMITS, s?.field) || typeof s.name !== "string" || !(Number(s.size) >= 0))) {
+    return { error: "업로드 요청이 올바르지 않습니다" };
+  }
   for (const field of Object.keys(LIMITS) as UploadSpec["field"][]) {
     const [maxCount, maxBytes] = LIMITS[field];
     const files = specs.filter((s) => s.field === field);
@@ -315,6 +319,10 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
         [meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, meta.based_on_skill_id, meta.visibility,
          meta.maker, meta.install_cmd, meta.homepage_url, meta.person, meta.basis, skill.id],
       );
+      // 링크형은 설치 명령·주소가 버전 파일 대신이다 → 에디터 아닌 사람이 바꾸면 에디터 픽을 내리고 다시 검수받게
+      if (skill.post_type === "link" && !viewer.editor && (meta.install_cmd !== skill.install_cmd || meta.homepage_url !== skill.homepage_url)) {
+        await t.query("UPDATE app.skills SET curated_version_id = NULL, curation_status = 'none' WHERE id = $1", [skill.id]);
+      }
       for (const s of current) {
         if (!removeIds.has(s.id)) continue;
         await t.query("DELETE FROM app.snapshots WHERE id = $1", [s.id]);

@@ -1,12 +1,12 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb, one } from "./db";
 import { SESSION_COOKIE, SESSION_TTL_MS, authSecret, cookieSecure, requireUser } from "./auth";
 import { makeSessionToken } from "./sign";
-import { issueCode, normalizeEmail, verifyCode } from "./login";
+import { issueCode, normalizeEmail, safeNext, verifyCode } from "./login";
 import { sendLoginCode } from "./mail";
 
 function field(form: FormData, key: string, max: number) {
@@ -14,10 +14,6 @@ function field(form: FormData, key: string, max: number) {
 }
 
 // 오픈 리다이렉트 방지: 사이트 내부 경로만
-function safeNext(raw: string) {
-  return raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/";
-}
-
 export type LoginState = { step: "email" | "code"; email?: string; error?: string };
 
 // 한 폼이 두 단계를 처리: 이메일만 오면 코드 발송, 코드까지 오면 검증 후 로그인
@@ -27,8 +23,10 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 
   const code = field(form, "code", 6);
   if (!code) {
-    const issued = await issueCode(getDb(), email, authSecret());
-    if (!issued) return { step: "code", email, error: "코드를 너무 자주 요청했습니다. 10분 뒤에 다시 시도하세요" };
+    // Vercel 은 x-forwarded-for 를 실제 접속 IP 로 덮어쓴다(클라이언트가 위조 불가)
+    const ip = ((await headers()).get("x-forwarded-for") ?? "").split(",")[0].trim();
+    const issued = await issueCode(getDb(), email, authSecret(), Date.now(), ip);
+    if (!issued) return { step: "code", email, error: "코드 요청이 너무 많습니다. 잠시 뒤 다시 시도하세요" };
     try {
       await sendLoginCode(email, issued);
     } catch (e) {

@@ -20,7 +20,8 @@
 
 - **에디터 픽 = 에디터가 승인한 글**(`curated_version_id IS NOT NULL`). 따로 켜고 끄는 픽 플래그는 없다(`skills.editor_pick` 컬럼은 미사용 — 다음 정리 때 삭제).
 - 흐름: 작성자가 검수 요청 → 에디터가 승인(= 에디터 픽) / 반려(사유 필수). 에디터는 요청 없이도 승인 가능, "에디터 픽에서 내리기"로 해제.
-- 승인은 에디터가 본 `version_id` 로 고정 → 이후 새 버전이 올라와도 에디터 픽은 승인된 버전을 보여주고 설치시킨다. 새 버전은 다시 검수 요청해야 교체.
+- 승인은 에디터가 본 `version_id` 로 고정 → 이후 새 버전이 올라와도 에디터 픽은 승인된 버전을 보여주고 설치시킨다(상세의 설치 버튼·SKILL.md = 승인 버전, 최신은 '검수 전' 보조 링크). 새 버전은 다시 검수 요청해야 교체.
+- 링크형은 설치 명령·공식 페이지가 버전 파일 대신 → 에디터가 아닌 사람이 이걸 바꾸면 에디터 픽이 내려간다(재검수).
 - `curation_status` 는 마지막 검수 요청의 상태일 뿐(재검수 대기·반려 중에도 이전 승인 버전은 에디터 픽에 남는다).
 - 홈 조명·`/picks` 는 **최근 선정 순**(`sort=picked`, 승인 리뷰의 `created_at`) → 새로 검수 통과한 스킬이 앞에 온다. 비공개 글은 에디터 픽 목록에 나오지 않는다.
 
@@ -62,7 +63,8 @@
 - 허용 도메인만: `@samsung.com`, `@cheil.com` (`ALLOWED_EMAIL_DOMAINS` 환경변수, 기본값 이 둘). **@ 뒤가 정확히 일치**해야 한다(`xsamsung.com`, `samsung.com.evil.io` 거부). 이메일은 소문자·trim 후 비교.
 - 흐름: `/login` 에 이메일 입력 → 6자리 코드 메일 발송 → 코드 입력 → 로그인. 처음 인증한 이메일은 그 자리에서 가입, `/me` 에서 이름·부서 입력.
 - 링크 대신 코드인 이유: 사내 메일 보안 스캐너가 링크를 먼저 열어 1회용 토큰을 소모하는 문제, 메일을 폰에서 열면 폰이 로그인되는 문제를 피한다.
-- 코드: 10분 유효, 1회용, 코드당 입력 5회 초과 시 무효, DB 에는 해시만 저장. 같은 이메일로 10분에 3통 넘게 발송 금지.
+- 코드: 10분 유효, 1회용, 코드당 입력 5회 초과 시 무효, DB 에는 해시만 저장. 발송 한도(`lib/login.ts`): 이메일당 10분 3통·하루 10통, 그 이메일로 틀린 코드가 하루 10번이면 그날 잠금(6자리 무작위 대입 방지), IP 당 시간 20통, 전체 하루 400통(Gmail 한도 보호).
+- 로그인 후 이동(`next`)은 `safeNext`(URL 로 파싱해 같은 출처 경로만) — `/	/evil.com` 같은 값이 외부로 새지 않게.
 - 세션: `session` 쿠키 = HMAC 서명(`AUTH_SECRET`)된 `user:<id>:<만료>`, 30일, httpOnly, sameSite=lax, https 일 때 Secure. 서버 저장 없음.
   - ponytail: 무상태 세션이라 강제 로그아웃 불가. 필요해지면 sessions 테이블로.
 - 사이트 전체 로그인 필수(`proxy.ts` 가 서명 검사 후 `/login` 으로 보냄). 앱 코드는 `lib/auth.ts` 의 `getCurrentUser()` 하나로만 사용자를 얻는다.
@@ -120,6 +122,9 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 - 업로드된 `SKILL.md`·본문은 sanitize 후 렌더링.
 - Server Action 마다 로그인·권한을 서버에서 다시 확인(버튼 숨김은 보안이 아님).
 - 서명·코드 비교는 `crypto.timingSafeEqual`.
+- Server Action 인자는 브라우저가 마음대로 보낼 수 있다 → 값뿐 아니라 모양(허용된 field 등)까지 검사.
+- 보안 헤더는 `next.config.ts`(X-Frame-Options SAMEORIGIN — 데모 iframe 이 같은 출처라 DENY 불가, nosniff, Referrer-Policy, X-Powered-By 끔).
+- 점검 이력: 2026-10-06 Strix 방식(정찰→범주별 점검→PoC) 자체 점검. 남은 위험은 아래 '미정 사항'.
 
 ## 배포 (Vercel)
 
@@ -157,3 +162,4 @@ db/migrations/        *.sql (Postgres, app 스키마)
 ## 미정 사항
 
 - 버려진 임시 업로드(`tmp/`) 정리 — ponytail: 지금은 제출 시 삭제만. 쌓이면 Vercel Cron 으로 하루 1회 정리
+- 남은 보안 위험(2026-10-06 점검) — ponytail: ①업로드 URL 발급 횟수 상한 없음(로그인한 사내 사용자가 Storage 를 채울 수 있음, 남용되면 발급 기록 테이블로 사용자당 상한) ②CSP 없음(마크다운 skipHtml·React 이스케이프로 XSS 경로는 막혀 있음, 필요하면 nonce CSP) ③세션 강제 만료 불가(위 '세션' 참고)
