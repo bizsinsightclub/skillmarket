@@ -11,6 +11,7 @@ const where = (t: Target) => ("skillId" in t ? { col: "skill_id", id: t.skillId 
 export const MAX_COMMENT = 2000;
 export const MAX_TITLE = 120;
 export const MAX_POST = 20000;
+export const MAX_BODY_IMAGE = 5 * 1024 * 1024; // 게시판 본문 이미지 한 장
 
 export type Comment = {
   id: number;

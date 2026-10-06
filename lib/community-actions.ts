@@ -1,12 +1,15 @@
 "use server";
 
+import crypto from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb, one } from "./db";
 import { requireViewer } from "./auth";
 import { getSkill } from "./queries";
+import { sniffImage } from "./skill-zip";
+import { download, remove, upload } from "./storage";
 import {
-  CommunityError, addComment, commentTarget, createPost, deleteComment, deletePost, toggleCommentReaction, togglePostReaction, updatePost, type Target,
+  CommunityError, MAX_BODY_IMAGE, addComment, commentTarget, createPost, deleteComment, deletePost, toggleCommentReaction, togglePostReaction, updatePost, type Target,
 } from "./community";
 
 const num = (form: FormData, key: string) => Number(form.get(key)) || null;
@@ -102,4 +105,23 @@ export async function deletePostAction(id: number) {
   if (!(await deletePost(getDb(), id, viewer))) notFound();
   revalidatePath("/board");
   redirect("/board");
+}
+
+// 게시판 본문 이미지: 브라우저가 tmp 에 올린 파일(uploadOne)을 검사해 board/ 로 옮기고, 본문에 넣을 주소를 돌려준다.
+// ponytail: 글을 저장하지 않거나 지워도 이미지는 남는다(고아 파일). 쌓이면 post_images 와 본문을 대조해 정리
+export async function attachBoardImage(tmpPath: string): Promise<{ url?: string; error?: string }> {
+  const { user } = await requireViewer();
+  if (!new RegExp(`^tmp/${user.id}/[0-9a-f-]{36}\\.img$`).test(String(tmpPath))) return { error: "업로드 경로가 올바르지 않습니다" };
+  try {
+    const data = await download(tmpPath);
+    if (data.length > MAX_BODY_IMAGE) return { error: "이미지는 5MB 이하만 넣을 수 있습니다" };
+    const ext = sniffImage(data); // 확장자·MIME 이 아니라 실제 바이트로 판별 (SVG 불가)
+    if (!ext) return { error: "png·jpg·webp·gif 이미지만 넣을 수 있습니다" };
+    const path = `board/${crypto.randomUUID()}.${ext}`;
+    await upload(path, data, ext === "jpg" ? "image/jpeg" : `image/${ext}`);
+    await getDb().query("INSERT INTO app.post_images (path, uploader_id) VALUES ($1, $2)", [path, user.id]);
+    return { url: `/files/${path}` };
+  } finally {
+    await remove([tmpPath]);
+  }
 }

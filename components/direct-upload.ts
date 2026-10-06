@@ -27,8 +27,7 @@ async function upload(form: HTMLFormElement): Promise<FormData | string> {
   const res = await prepareUpload(files.map(({ field, file }) => ({ field, name: file.name, size: file.size })));
   if (!res.tickets) return res.error ?? "업로드 준비에 실패했습니다";
 
-  // 공개(publishable) 키로 충분하다: 업로드 권한은 서버가 발급한 토큰에만 있다
-  const storage = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!).storage.from("uploads");
+  const storage = bucket();
   const results = await Promise.all(
     res.tickets.map((t, i) => storage.uploadToSignedUrl(t.path, t.token, files[i].file, { contentType: files[i].file.type || "application/octet-stream" })),
   );
@@ -36,4 +35,19 @@ async function upload(form: HTMLFormElement): Promise<FormData | string> {
   if (failed) return `파일 업로드에 실패했습니다: ${failed.error!.message}`;
   for (const t of res.tickets) data.append(`${t.field}_tmp`, t.path); // 순서 유지(첫 이미지 = 썸네일)
   return data;
+}
+
+// 공개(publishable) 키로 충분하다: 업로드 권한은 서버가 발급한 토큰에만 있다
+function bucket() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!).storage.from("uploads");
+}
+
+// 파일 하나를 올리고 임시 경로(tmp/<내 id>/<uuid>.<ext>)를 돌려준다 — 게시판 본문 이미지용
+export async function uploadOne(field: UploadSpec["field"], file: File): Promise<string> {
+  const res = await prepareUpload([{ field, name: file.name, size: file.size }]);
+  if (!res.tickets) throw new Error(res.error ?? "업로드 준비에 실패했습니다");
+  const [t] = res.tickets;
+  const { error } = await bucket().uploadToSignedUrl(t.path, t.token, file, { contentType: file.type || "application/octet-stream" });
+  if (error) throw new Error(error.message);
+  return t.path;
 }

@@ -14,7 +14,8 @@
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
 - `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
-- `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
+- `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 본문 이미지 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
+  - 본문 이미지: 버튼·붙여넣기·끌어다 놓기 → 브라우저가 tmp 에 직접 올림 → `attachBoardImage` 가 바이트로 판별(png/jpg/webp/gif, 장당 5MB)해 `board/<uuid>` 로 옮기고 `post_images` 에 등록 → 커서 자리에 `![](/files/board/…)`. `/files` 는 등록된 board 경로만, 로그인한 사람 누구나. ponytail: 저장 안 한 글·지운 글의 이미지는 남는다(정리 미구현).
 - **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
 
 ## 에디터 픽 (큐레이티드와 통합 — 2026-10-02)
@@ -126,7 +127,7 @@ likes(user_id, skill_id, created_at)
 installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용 이벤트 로그
 posts(id, author_id, title, body_md, link_url, created_at, updated_at)            -- AI Breakthrough
 comments(id, skill_id NULL, post_id NULL, parent_id NULL, author_id, body, deleted, created_at)  -- 둘 중 하나에만
-comment_reactions(user_id, comment_id) · post_reactions(user_id, post_id)
+comment_reactions(user_id, comment_id) · post_reactions(user_id, post_id) · post_images(path, uploader_id)
 briefing_seen(url)                                          -- 브리핑에서 처리한 저장소
 ```
 좋아요·설치 수는 집계 쿼리. 느려지면 그때 카운터 컬럼.
