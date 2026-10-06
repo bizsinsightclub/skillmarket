@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import postgres from "postgres";
+import pg from "pg";
 
 // 앱 코드가 쓰는 DB 의 전부. 운영은 postgres.js(Supabase), 테스트는 PGlite(메모리 Postgres)가 구현한다.
 // 테이블은 전부 app 스키마 — 쿼리에서 app.xxx 로 적는다(풀러 연결에서 search_path 를 믿지 않기 위해).
@@ -39,20 +39,43 @@ export async function migrate(db: Db) {
   });
 }
 
-type Sql = postgres.Sql | postgres.TransactionSql;
+// 드라이버는 pg(node-postgres). 매개변수 쿼리를 Parse·Bind·Execute·Sync 한 번에 보낸다.
+// (postgres.js 는 prepare:false 일 때 형식을 먼저 묻고(왕복 1) 다시 실행해서, 그 사이 함수가 멈추면
+//  Supabase 풀러의 DB 연결이 'ClientRead' 로 묶여 풀이 바닥나고 페이지가 멈췄다 — 2026-10-06)
+type Runner = pg.Pool | pg.PoolClient;
 
-function wrap(sql: Sql, inTx: boolean): Db {
+function wrap(run: Runner, inTx: boolean): Db {
   return {
-    query: async (text, params = []) => (await sql.unsafe(text, params as postgres.ParameterOrJSON<never>[])) as never,
+    query: async (text, params = []) => (await run.query(text, params)).rows as never,
     // 이미 트랜잭션 안이면 그대로 이어서 쓴다(중첩 = 바깥 트랜잭션 하나)
-    tx: (fn) => (inTx ? fn(wrap(sql, true)) : ((sql as postgres.Sql).begin((t) => fn(wrap(t, true))) as never)),
+    tx: async (fn) => {
+      if (inTx) return fn(wrap(run, true));
+      const client = await (run as pg.Pool).connect();
+      try {
+        await client.query("BEGIN");
+        const out = await fn(wrap(client, true));
+        await client.query("COMMIT");
+        return out;
+      } catch (e) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
   };
 }
 
 export function connect(url: string, opts: { max?: number } = {}): Db & { end: () => Promise<void> } {
-  // Supabase 풀러(트랜잭션 모드)는 prepared statement 를 못 쓴다
-  const sql = postgres(url, { prepare: false, max: opts.max ?? 5, idle_timeout: 20, onnotice: () => {} });
-  return { ...wrap(sql, false), end: () => sql.end() };
+  // URL 의 sslmode 는 pg 가 인증서 검증(verify-full)으로 읽어 Supabase 인증서에서 실패한다 → 빼고 암호화만(기존 postgres.js 'require' 와 같은 수준)
+  // ponytail: 인증서 검증 없음. 필요해지면 Supabase CA 를 ssl.ca 로 고정
+  const u = new URL(url);
+  const ssl = u.searchParams.has("sslmode") && u.searchParams.get("sslmode") !== "disable" ? { rejectUnauthorized: false } : undefined;
+  u.searchParams.delete("sslmode");
+  u.searchParams.delete("supa");
+  const pool = new pg.Pool({ connectionString: u.toString(), ssl, max: opts.max ?? 5, idleTimeoutMillis: 20_000 });
+  pool.on("error", () => {}); // 쉬는 연결이 끊겨도 프로세스를 죽이지 않는다(다음 쿼리가 새로 연결)
+  return { ...wrap(pool, false), end: () => pool.end() };
 }
 
 const g = globalThis as unknown as { __db?: Db };

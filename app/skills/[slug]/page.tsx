@@ -5,6 +5,7 @@ import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 import { parseLensFile } from "@/lib/lens-file";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
+import SubmitButton from "@/components/submit-button";
 import { unpickAction } from "@/lib/editor-actions";
 import {
   canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, skillStats,
@@ -234,7 +235,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   <summary className="cursor-pointer list-none rounded-full px-4 py-2 text-red-600 ring-1 ring-red-200">삭제</summary>
                   <form action={deleteSkill.bind(null, skill.slug)} className="glass absolute right-0 z-10 mt-2 w-60 rounded-2xl p-4">
                     <p className="mb-3 text-xs text-black/60">버전·스냅샷·좋아요가 모두 지워집니다.</p>
-                    <button className="w-full rounded-full bg-red-600 px-3 py-2 text-white">정말 삭제</button>
+                    <SubmitButton busy="삭제하는 중…" className="w-full rounded-full bg-red-600 px-3 py-2 text-white">정말 삭제</SubmitButton>
                   </form>
                 </details>
               </div>

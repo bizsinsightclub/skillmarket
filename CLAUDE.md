@@ -85,10 +85,11 @@
 
 - Next.js 16 (App Router) + TypeScript, 서버 컴포넌트 + Server Actions. 별도 API 서버 없음. (Next 16: `middleware` → `proxy.ts`)
 - 호스팅: Vercel(함수 리전 `icn1`, `vercel.json`). 프로젝트 `bizsinsightclubs-projects/skillmarket`.
-- DB: Supabase Postgres(서울, Vercel Marketplace 연동). `postgres`(postgres.js) 로 서버에서만 직접 접속(`POSTGRES_URL` 풀러, `prepare: false`).
+- DB: Supabase Postgres(서울, Vercel Marketplace 연동). `pg`(node-postgres) 로 서버에서만 직접 접속(`POSTGRES_URL` = Supavisor 트랜잭션 풀러).
+  - postgres.js 를 쓰지 않는 이유: `prepare:false` 에서 매개변수 쿼리를 '형식 묻기 → 실행' 두 번 왕복으로 보내, 그 사이 함수가 멈추면 풀러의 DB 연결이 ClientRead 로 묶여 풀이 바닥나고 페이지가 2분씩 멈췄다(2026-10-06). pg 는 한 번에 보낸다.
   - 테이블은 전부 **`app` 스키마** → Supabase Data API(공개 키로 접근 가능한 REST)는 `public` 만 노출하므로 닿지 않는다. 쿼리에서 `app.테이블` 로 적는다.
   - `lib/db.ts` 의 `Db` 인터페이스(`query`/`tx`)만 쓴다. 파라미터는 `$1…`, 동적 SQL 은 `Params`.
-  - id·카운트는 `int`(`COUNT(*)::int`) — postgres.js 는 bigint 를 문자열로 준다.
+  - id·카운트는 `int`(`COUNT(*)::int`) — pg 는 bigint(int8) 를 문자열로 준다.
 - 파일: Supabase Storage 비공개 버킷 `uploads`(파일당 20MB). 서버만 secret 키 사용.
   - Vercel 함수 요청·응답 본문 한도 4.5MB → **업로드는 브라우저가 1회용 서명 URL 로 Storage 에 직접**(`components/direct-upload.ts` → `prepareUpload`), 서버는 `tmp/<user_id>/…` 를 내려받아 검증 후 최종 경로로 다시 저장하고 tmp 삭제.
   - 다운로드·이미지는 가시성 검사 후 Storage 서명 URL 로 302. 데모 HTML 만 함수가 직접 응답(격리 헤더 때문, 그래서 4MB 제한).
@@ -145,7 +146,7 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 
 ```
 app/                  라우트
-lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그레이션 실행기
+lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 실행기
                       link-post.ts 링크형 글(플러그인·MCP) 입력 검증
                       lens-file.ts The Lens 렌즈 .md 검증·추출
                       test-db.ts   테스트용 PGlite(메모리 Postgres) Db
