@@ -17,6 +17,7 @@ const TONE: Record<Kind, { glow: string; dot: string; chip: string }> = {
   skill: { glow: "rgba(230,245,122,0.22)", dot: "#e6f57a", chip: "rgba(230,245,122,0.14)" },
   link: { glow: "rgba(56,189,248,0.24)", dot: "#7dd3fc", chip: "rgba(56,189,248,0.14)" },
   lens: { glow: "rgba(124,92,252,0.32)", dot: "#a78bfa", chip: "rgba(167,139,250,0.18)" },
+  app: { glow: "rgba(16,185,129,0.26)", dot: "#6ee7b7", chip: "rgba(16,185,129,0.16)" },
 };
 
 export async function GET(_req: Request, ctx: RouteContext<"/skills/[slug]/cover">) {
@@ -27,7 +28,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/skills/[slug]/cover
   const [bold, medium] = await fonts;
   const t = TONE[s.post_type];
 
-  const eyebrow = s.post_type === "link" ? `${s.category_label} · by ${s.maker}` : s.post_type === "lens" ? `The Lens 전문가 · ${s.person} 기반` : `Claude 스킬 · ${s.category_label}`;
+  const eyebrow = s.post_type === "link" ? `${s.category_label} · by ${s.maker}` : s.post_type === "lens" ? `The Lens 전문가 · ${s.person} 기반` : s.post_type === "app" ? `HTML 앱 · ${s.category_label}` : `Claude 스킬 · ${s.category_label}`;
   const chips = (s.post_type === "lens" ? s.bands.split(",").map((b) => b.replace(/\s*\(.*$/, "")) : s.tags.split(","))
     .map((c) => c.trim())
     .filter(Boolean)

@@ -5,7 +5,7 @@ import type { FormState } from "@/lib/skill-actions";
 import { uploadForm } from "./direct-upload";
 
 type Snapshot = { id: number; kind: "image" | "demo"; path: string };
-type PostType = "skill" | "link" | "lens";
+type PostType = "skill" | "link" | "lens" | "app";
 type Category = { slug: string; label: string; post_type: PostType };
 
 export type SkillFormValues = {
@@ -57,10 +57,11 @@ export default function SkillForm({
   const type = typeOf(category);
   const isLink = type === "link";
   const isLens = type === "lens";
+  const isApp = type === "app";
   // 수정할 때는 글 종류를 못 바꾼다 → 같은 종류 분류만 보여 준다
   const options = mode === "edit" ? categories.filter((c) => c.post_type === typeOf(values.category)) : categories;
   const creditWho = isLink ? "추천인" : "원작자";
-  const TYPE_LABEL: Record<PostType, string> = { skill: "스킬", link: "", lens: "" };
+  const TYPE_LABEL: Record<PostType, string> = { skill: "스킬", link: "", lens: "", app: "HTML 앱" };
 
   return (
     // form action 대신 onSubmit: 파일은 Storage 로 먼저 올리고, 검증 실패 시 입력값(파일 포함)이 초기화되지 않게
@@ -76,7 +77,7 @@ export default function SkillForm({
       }}
       className="flex max-w-3xl flex-col gap-5"
     >
-      <span hidden data-tab={isLens ? "/experts" : isLink ? "/plugins" : "/skills"} /> {/* 고른 종류에 맞춰 헤더 메뉴 강조 */}
+      <span hidden data-tab={isLens ? "/experts" : isLink ? "/plugins" : isApp ? "/apps" : "/skills"} /> {/* 고른 종류에 맞춰 헤더 메뉴 강조 */}
       <label className={label}>
         무엇을 올리나요?
         <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} w-60`}>
@@ -87,7 +88,9 @@ export default function SkillForm({
             ? "추천하는 플러그인·MCP 를 설치 방법과 함께 소개합니다. 파일은 올리지 않습니다."
             : isLens
               ? "The Lens 의 렌즈(.md) 파일을 올립니다. 실존 인물의 공개된 방법론을 기준으로 삼되, 인물을 흉내 내는 렌즈는 올리지 마세요."
-              : "SKILL.md 가 든 스킬 폴더를 올립니다."}
+              : isApp
+                ? "대시보드·도구처럼 브라우저에서 바로 돌아가는 HTML 파일 하나를 올립니다. 상세 화면에서 격리된 창으로 실행해 볼 수 있습니다."
+                : "SKILL.md 가 든 스킬 폴더를 올립니다."}
         </span>
       </label>
 
@@ -136,6 +139,21 @@ export default function SkillForm({
         </fieldset>
       )}
 
+      {mode === "create" && isApp && (
+        <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
+          <legend className={legend}>HTML 파일</legend>
+          <label className={label}>
+            HTML 파일 *
+            <input name="html" type="file" accept=".html,.htm" required className={input} />
+            <span className={hint}>파일 하나로 돌아가는 HTML (UTF-8, 최대 4MB). 라이브러리는 CDN 주소로 불러와도 됩니다. 사내 데이터·비밀번호가 들어 있지 않은지 확인하세요.</span>
+          </label>
+          <label className={label}>
+            버전
+            <input name="version" defaultValue="1.0.0" maxLength={20} className={`${input} w-40`} />
+          </label>
+        </fieldset>
+      )}
+
       {isLink && (
         <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
           <legend className={legend}>설치 정보</legend>
@@ -160,6 +178,7 @@ export default function SkillForm({
         <input name="name" defaultValue={values.name} maxLength={80} required={mode === "edit" || isLink} className={input} />
         {mode === "create" && type === "skill" && <span className={hint}>비우면 SKILL.md 의 name 을 씁니다.</span>}
         {mode === "create" && isLens && <span className={hint}>비우면 렌즈 파일 제목에서 가져옵니다.</span>}
+        {mode === "create" && isApp && <span className={hint}>비우면 HTML 의 &lt;title&gt; 을 씁니다.</span>}
       </label>
       <label className={label}>
         한 줄 요약
@@ -189,7 +208,7 @@ export default function SkillForm({
         </div>
         {!isLink && (
           <label className={label}>
-            {isLens ? "원본 렌즈 (다른 렌즈를 고쳐 만든 경우)" : "원본 스킬 (다른 스킬을 고쳐 만든 경우)"}
+            {isLens ? "원본 렌즈 (다른 렌즈를 고쳐 만든 경우)" : isApp ? "원본 (다른 글을 고쳐 만든 경우)" : "원본 스킬 (다른 스킬을 고쳐 만든 경우)"}
             <input name="based_on" defaultValue={values.based_on} placeholder="원본 스킬 주소 또는 slug" className={input} />
           </label>
         )}
@@ -212,7 +231,7 @@ export default function SkillForm({
           </div>
         )}
         <label className={label}>
-          {type === "skill" ? "결과물 이미지 추가" : "소개 이미지 추가"}
+          {type === "skill" ? "결과물 이미지 추가" : isApp ? "화면 캡처 추가 (없으면 자동 표지)" : "소개 이미지 추가"}
           <input name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className={input} />
           <span className={hint}>png·jpg·webp·gif, 장당 5MB, 최대 10장. 첫 장이 목록 썸네일이 됩니다.</span>
         </label>

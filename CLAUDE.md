@@ -45,17 +45,21 @@
 
 ## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다)
 
-0. **세 종류의 글** — 분류의 `categories.post_type`(skill·link·lens)이 정한다. 코드에 분류 이름을 하드코딩하지 않는다. (`needs_zip` 컬럼은 미사용 — 다음 정리 때 삭제)
+0. **네 종류의 글** — 분류의 `categories.post_type`(skill·link·lens·app)이 정한다. 코드에 분류 이름을 하드코딩하지 않는다. (`needs_zip` 컬럼은 미사용 — 다음 정리 때 삭제)
    - 스킬(zip): 아래 1~6 전부.
    - **링크형(플러그인·MCP 서버·오픈소스)**: 오픈소스 = 플러그인·MCP 가 아닌 추천 저장소(앱·DB·커리큘럼 등). zip 없이 `install_cmd`(설치 명령) + `homepage_url`(http/https 만) + `maker`(만든 곳, 외부). 크레딧의 원작자 칸은 **추천인**. 다운로드·새 버전·SKILL.md 없음, 설치 수 표시 안 함.
    - 링크형도 큐레이션 모델을 그대로 쓰려고 `version='link'`, `zip_path=''` 인 '등록본' 버전 한 줄을 만든다(`lib/link-post.ts`). 수정해도 새 버전이 생기지 않는다.
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
-     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기), 로고는 '스킬마켓' 글자만. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
+     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기), 로고는 '스킬마켓' 글자만. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
-   - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
+   - **HTML 앱(`/apps`, 에메랄드)**: 대시보드·도구처럼 HTML 파일 하나가 결과물(분류: 대시보드·도구). 버전 파일 `.html`(UTF-8, 4MB — 함수가 직접 응답하므로), `<title>` 이 이름 기본값(`lib/html-app.ts`).
+     - 실행은 `/skills/[slug]/app`(?v=버전, 기본 = 에디터 픽 승인 버전 → 최신)만: 응답 헤더 `CSP: sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads` + 상세의 iframe 도 같은 sandbox. **allow-same-origin 절대 금지**. Storage 엔 text/plain 으로 저장.
+     - 격리된 화면에선 localStorage 가 막혀 앱이 아예 죽으므로, 막혔을 때만 메모리 저장소로 바꿔 끼우는 짧은 스크립트를 `<head>` 뒤에 넣어 응답한다(`withStorageShim`, 새로고침하면 사라짐).
+     - ponytail: 같은 사이트 출처라 앱끼리 저장소 공유·영구 저장은 없음. 필요해지면 별도 도메인 + 서명 토큰 주소로 옮겨 allow-same-origin 을 그 도메인에서만.
+   - 수정할 때 글 종류(스킬·링크형·렌즈·HTML 앱) 사이로 분류를 바꿀 수 없다.
 
 1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다. `name` 은 Claude 스킬 규격(영문 소문자·숫자·하이픈 64자, anthropic·claude 금지), `description` 1024자 이내 — 어긋나면 Claude 앱 업로드가 거부되므로 올릴 때 막는다.
    - 서버는 zip 을 디스크에 풀지 않는다. 메모리에서 검사한 뒤 **다시 묶어서**(정규 파일만, SKILL.md 루트) 저장 → 심볼릭 링크·이상한 속성이 설치자에게 가지 않는다.
@@ -137,7 +141,7 @@ briefing_seen(url)                                          -- 브리핑에서 �
 
 - zip: 경로 탈출(`../`, 절대경로) 거부, zip 20MB · 압축 해제 50MB · 파일 500개 상한, 재압축으로 심볼릭 링크 제거.
 - 업로드 이미지는 파일 앞 바이트로 판별(png/jpg/webp/gif), 장당 5MB·10장. SVG 불가.
-- 데모 HTML 은 sandbox iframe 전용 + 응답 헤더 `Content-Security-Policy: sandbox allow-scripts`(직접 열어도 격리). 가능하면 별도 오리진.
+- 데모 HTML 은 sandbox iframe 전용 + 응답 헤더 `Content-Security-Policy: sandbox allow-scripts`(직접 열어도 격리). 가능하면 별도 오리진. HTML 앱도 같은 원칙(권한 목록은 `APP_SANDBOX` 하나, 테스트가 allow-same-origin 을 막는다).
 - 업로드 파일은 비공개 버킷에만. `/files/…` 라우트가 가시성 검사 + DB 에 등록된 경로만 서빙. 이미지는 판별한 MIME 으로, 데모는 `text/plain` 으로 다시 저장(Storage 주소로 직접 열려도 실행 안 됨).
 - 임시 업로드 경로는 `tmp/<본인 user_id>/<uuid>` 만 받는다(남의 업로드 가로채기 방지).
 - `SUPABASE_SECRET_KEY`/`SERVICE_ROLE_KEY` 는 서버 전용. 클라이언트에는 `NEXT_PUBLIC_SUPABASE_URL`·`PUBLISHABLE_KEY` 만.
@@ -164,6 +168,7 @@ lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 �
                       community.ts 댓글·공감·게시판 규칙(테스트)   community-actions.ts 그 서버 액션
                       link-post.ts 링크형 글(플러그인·MCP) 입력 검증
                       lens-file.ts The Lens 렌즈 .md 검증·추출
+                      html-app.ts  HTML 앱 파일 검증·격리 권한·저장소 대체
                       test-db.ts   테스트용 PGlite(메모리 Postgres) Db
                       auth.ts      getCurrentUser / requireViewer / isEditor
                       sign.ts      HMAC 서명·세션 토큰        login.ts  도메인 검사·인증 코드

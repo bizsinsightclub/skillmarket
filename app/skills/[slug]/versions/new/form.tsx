@@ -4,7 +4,15 @@ import { useActionState, useState, startTransition } from "react";
 import type { FormState } from "@/lib/skill-actions";
 import { uploadForm } from "@/components/direct-upload";
 
-export default function VersionForm({ action, suggested, lens = false }: { action: (p: FormState, f: FormData) => Promise<FormState>; suggested: string; lens?: boolean }) {
+// 글 종류별 버전 파일: 스킬 zip · 렌즈 .md · HTML 앱 .html
+const FILE = {
+  skill: { field: "zip", accept: ".zip", label: "스킬 폴더 zip *" },
+  lens: { field: "lens", accept: ".md", label: "렌즈 파일 (.md) *" },
+  app: { field: "html", accept: ".html,.htm", label: "HTML 파일 *" },
+} as const;
+
+export default function VersionForm({ action, suggested, kind }: { action: (p: FormState, f: FormData) => Promise<FormState>; suggested: string; kind: keyof typeof FILE }) {
+  const file = FILE[kind];
   const [state, dispatch, pending] = useActionState(action, {});
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -23,8 +31,8 @@ export default function VersionForm({ action, suggested, lens = false }: { actio
       className="flex max-w-xl flex-col gap-4"
     >
       <label className="flex flex-col gap-1 text-sm">
-        {lens ? "렌즈 파일 (.md) *" : "스킬 폴더 zip *"}
-        <input name={lens ? "lens" : "zip"} type="file" accept={lens ? ".md" : ".zip"} required className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30" />
+        {file.label}
+        <input name={file.field} type="file" accept={file.accept} required className="rounded-xl border border-black/10 px-3 py-2 outline-none focus:border-black/30" />
       </label>
       <label className="flex flex-col gap-1 text-sm">
         버전 *

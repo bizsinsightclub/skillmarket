@@ -12,7 +12,7 @@ function visible(v: Viewer, p: Params) {
 
 export type Tab = "all" | "pick"; // pick = 에디터 픽(에디터가 승인한 것)
 export type Sort = "latest" | "trending" | "popular" | "picked"; // picked = 최근에 에디터 픽이 된 순
-export type Kind = "skill" | "link" | "lens"; // 글 종류 = categories.post_type. link = 플러그인·MCP, lens = The Lens 전문가 렌즈
+export type Kind = "skill" | "link" | "lens" | "app"; // 글 종류 = categories.post_type. link = 플러그인·MCP, lens = The Lens 전문가 렌즈, app = HTML 앱(대시보드·도구)
 
 export type BoardRow = {
   id: number;

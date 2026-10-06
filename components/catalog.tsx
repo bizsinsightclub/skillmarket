@@ -15,7 +15,7 @@ type SP = Record<string, string | string[] | undefined>;
 
 // /skills(스킬), /plugins(플러그인·MCP), /picks(에디터 픽 전체) 가 같이 쓰는 목록 화면
 // 종류별 바로가기. 스킬은 헤더 '올리기'와 겹쳐서 두지 않는다
-const UPLOAD: Partial<Record<Kind, [string, string]>> = { link: ["/write?category=plugin", "추천하기"], lens: ["/write?category=expert", "렌즈 올리기"] };
+const UPLOAD: Partial<Record<Kind, [string, string]>> = { link: ["/write?category=plugin", "추천하기"], lens: ["/write?category=expert", "렌즈 올리기"], app: ["/write?category=dashboard", "HTML 올리기"] };
 
 export default async function Catalog({ base, title, kind, onlyPicks = false, intro, sp }: { base: string; title: string; kind?: Kind; onlyPicks?: boolean; intro?: React.ReactNode; sp: SP }) {
   const { viewer } = await requireViewer();

@@ -25,7 +25,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
         현재 v{latest.version}
         {skill.curated_version_id ? " · 에디터 픽은 검수를 다시 받기 전까지 기존 승인 버전을 유지합니다" : ""}
       </p>
-      <VersionForm action={addVersion.bind(null, slug)} suggested={bump(latest.version)} lens={skill.post_type === "lens"} />
+      <VersionForm action={addVersion.bind(null, slug)} suggested={bump(latest.version)} kind={skill.post_type === "lens" || skill.post_type === "app" ? skill.post_type : "skill"} />
     </div>
   );
 }

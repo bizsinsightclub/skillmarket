@@ -7,6 +7,7 @@ import { parseLensFile } from "@/lib/lens-file";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
 import SubmitButton from "@/components/submit-button";
 import Comments from "@/components/comments";
+import { APP_SANDBOX } from "@/lib/html-app";
 import { unpickAction } from "@/lib/editor-actions";
 import {
   canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, skillStats,
@@ -70,13 +71,15 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
   const isLink = skill.post_type === "link";
   const isLens = skill.post_type === "lens";
+  const isApp = skill.post_type === "app"; // HTML 앱: 결과물이 HTML 파일 하나 → 상세에서 바로 실행
+  const appUrl = `/skills/${skill.slug}/app?v=${shown.id}`;
   // 플러그인 마켓플레이스(`/plugin marketplace add owner/repo`)면 Claude 앱에서도 같은 저장소로 추가할 수 있다
   const marketplace = isLink ? skill.install_cmd.match(/\/plugin marketplace add (\S+)/)?.[1] : undefined;
   const pluginName = isLink ? skill.install_cmd.match(/\/plugin install ([^@\s]+)/)?.[1] : undefined;
   const lensPrompt = isLens ? lensPromptOf(shown.skill_md) : "";
   const bands = skill.bands ? skill.bands.split(",") : [];
   const vl = (v: string) => (isLink ? "" : `v${v}`);
-  const [listHref, listLabel] = isLink ? ["/plugins", "플러그인·MCP"] : isLens ? ["/experts", "전문가"] : ["/skills", "스킬"];
+  const [listHref, listLabel] = isLink ? ["/plugins", "플러그인·MCP"] : isLens ? ["/experts", "전문가"] : isApp ? ["/apps", "HTML 앱"] : ["/skills", "스킬"];
 
   return (
     <div>
@@ -90,6 +93,16 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_440px]">
         {/* 왼쪽: 결과물 미리보기 */}
         <div className="flex min-w-0 flex-col gap-5">
+          {isApp && (
+            <div className="glass overflow-hidden rounded-3xl p-2">
+              <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="font-semibold">실행해 보기 <span className="font-normal text-black/45">v{shown.version} · 격리된 화면</span></span>
+                <a href={appUrl} target="_blank" rel="noopener" className="whitespace-nowrap font-semibold text-emerald-700 hover:text-emerald-900">새 창에서 크게 ↗</a>
+              </div>
+              {/* allow-same-origin 절대 금지 (CLAUDE.md 보안 규칙) — 응답에도 같은 CSP sandbox 가 붙는다 */}
+              <iframe src={appUrl} sandbox={APP_SANDBOX} className="h-[72vh] min-h-[480px] w-full rounded-2xl bg-white" title={`${skill.name} 실행`} />
+            </div>
+          )}
           {images.map((s) => (
             <a key={s.id} href={`/files/${s.path}`} target="_blank" className="glass block overflow-hidden rounded-3xl p-2">
               <img src={`/files/${s.path}`} alt={`${skill.name} 결과물`} className="w-full rounded-2xl" />
@@ -105,7 +118,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               <iframe src={`/files/${demo.path}`} sandbox="allow-scripts" className="h-[620px] w-full rounded-2xl bg-white" title="데모" />
             </div>
           )}
-          {!images.length && !demo && (
+          {!images.length && !demo && !isApp && (
             <div className="glass overflow-hidden rounded-3xl p-2">
               <img src={coverUrl(skill.slug, skill.updated_at)} alt={`${skill.name} 미리보기`} className="aspect-[16/10] w-full rounded-2xl object-cover" />
             </div>
@@ -158,6 +171,11 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                     공식 페이지 ↗
                   </a>
                 )}
+              </div>
+            ) : isApp ? (
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <a href={appUrl} target="_blank" rel="noopener" className="rounded-2xl bg-emerald-600 px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-emerald-700">새 창에서 열기 ↗</a>
+                <a href={`/skills/${skill.slug}/download?v=${shown.id}`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">HTML 받기</a>
               </div>
             ) : isLens ? (
               <div className="mt-6 grid grid-cols-2 gap-2">
@@ -282,6 +300,14 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-sm underline">{skill.homepage_url}</a>
               )}
               {marketplace && <p className="mt-4 text-xs text-black/50">앱에서 추가한 플러그인은 같은 계정으로 로그인한 Claude Code 에도 들어옵니다. 유료 플랜(Pro·Max·Team·Enterprise)에서 쓸 수 있습니다.</p>}
+            </Block>
+          ) : isApp ? (
+            <Block title="쓰는 방법">
+              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-black/70">
+                <li>위 화면에서 바로 써 보거나 <b>새 창에서 열기</b>로 크게 엽니다.</li>
+                <li><b>HTML 받기</b>로 파일을 받아 내 PC 브라우저로 열어도 됩니다. CDN 라이브러리를 쓰는 앱은 인터넷 연결이 필요합니다.</li>
+                <li>격리된 화면이라 이 사이트의 로그인 정보·쿠키에는 접근할 수 없습니다. 앱이 저장하는 내용(localStorage)은 여기선 새로고침하면 사라집니다 — 계속 쓸 거라면 받아서 여세요.</li>
+              </ul>
             </Block>
           ) : isLens ? (
             <>

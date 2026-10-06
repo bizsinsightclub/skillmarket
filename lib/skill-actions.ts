@@ -10,6 +10,7 @@ import { canEdit, getSkill, type Viewer } from "./queries";
 import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
+import { MAX_APP_BYTES, parseHtmlApp } from "./html-app";
 import type { Kind } from "./queries";
 import { download, remove, removeSkillFiles, signedUploadUrl, upload } from "./storage";
 
@@ -23,11 +24,11 @@ const MAX_ACCESS = 200;
 // ── 1단계: 브라우저가 Storage 에 직접 올릴 1회용 업로드 URL 발급 ─────────────────────
 // Vercel 함수는 요청 본문이 4.5MB 까지라 파일은 서버를 거치지 않는다. 검증은 2단계에서.
 
-export type UploadSpec = { field: "zip" | "images" | "demo" | "lens"; name: string; size: number };
+export type UploadSpec = { field: "zip" | "images" | "demo" | "lens" | "html"; name: string; size: number };
 export type UploadTicket = { field: UploadSpec["field"]; path: string; token: string };
 
-const LIMITS = { zip: [1, MAX_ZIP_BYTES], images: [MAX_IMAGES, MAX_IMAGE_BYTES], demo: [1, MAX_DEMO_BYTES], lens: [1, MAX_LENS_BYTES] } as const;
-const EXT = { zip: "zip", images: "img", demo: "html", lens: "md" } as const;
+const LIMITS = { zip: [1, MAX_ZIP_BYTES], images: [MAX_IMAGES, MAX_IMAGE_BYTES], demo: [1, MAX_DEMO_BYTES], lens: [1, MAX_LENS_BYTES], html: [1, MAX_APP_BYTES] } as const;
+const EXT = { zip: "zip", images: "img", demo: "html", lens: "md", html: "html" } as const;
 
 export async function prepareUpload(specs: UploadSpec[]): Promise<{ tickets?: UploadTicket[]; error?: string }> {
   const user = await requireUser();
@@ -42,7 +43,7 @@ export async function prepareUpload(specs: UploadSpec[]): Promise<{ tickets?: Up
     const big = files.find((f) => f.size > maxBytes);
     if (big) return { error: `파일이 너무 큽니다 (최대 ${Math.round(maxBytes / 1024)}KB): ${big.name}` };
   }
-  if (specs.some((s) => s.field === "demo" && !/\.html?$/i.test(s.name))) return { error: "데모는 .html 파일만 올릴 수 있습니다" };
+  if (specs.some((s) => (s.field === "demo" || s.field === "html") && !/\.html?$/i.test(s.name))) return { error: "HTML 은 .html 파일만 올릴 수 있습니다" };
   if (specs.some((s) => s.field === "lens" && !/\.md$/i.test(s.name))) return { error: "렌즈는 .md 파일만 올릴 수 있습니다" };
 
   const tickets: UploadTicket[] = [];
@@ -63,7 +64,7 @@ function text(form: FormData, key: string, max: number) {
 function tmpPaths(form: FormData, userId: number) {
   const re = new RegExp(`^tmp/${userId}/[0-9a-f-]{36}\\.(zip|img|html|md)$`);
   const get = (k: string) => form.getAll(k).map(String).filter((p) => re.test(p));
-  return { zip: get("zip_tmp")[0], images: get("images_tmp").slice(0, MAX_IMAGES), demo: get("demo_tmp")[0], lens: get("lens_tmp")[0] };
+  return { zip: get("zip_tmp")[0], images: get("images_tmp").slice(0, MAX_IMAGES), demo: get("demo_tmp")[0], lens: get("lens_tmp")[0], html: get("html_tmp")[0] };
 }
 
 type Meta = {
@@ -101,6 +102,12 @@ async function readLens(path: string): Promise<{ text: string; lens: ParsedLens 
     throw new UploadError("렌즈 파일은 UTF-8 텍스트(.md)여야 합니다");
   }
   return { text, lens: parseLensFile(text) };
+}
+
+// HTML 앱 파일: UTF-8·HTML 인지·4MB 검사, <title> 은 이름 기본값
+async function readHtml(path: string | undefined) {
+  if (!path) throw new UploadError("HTML 파일을 선택하세요");
+  return parseHtmlApp(await download(path));
 }
 
 // 글쓰기·수정 공통 입력 검증. defaults 는 빈 칸일 때 채울 값(업로드 zip 의 frontmatter 등).
@@ -182,8 +189,14 @@ async function readDemo(path: string | undefined) {
   return data;
 }
 
-// 버전 파일 저장: 스킬은 다시 묶은 zip, 렌즈는 .md 원문. 저장한 경로를 돌려준다(없으면 "")
-async function storeVersionFile(skillId: number, slug: string, version: string, parsed: ParsedSkill | null, lensText: string | null) {
+// 버전 파일 저장: 스킬은 다시 묶은 zip, 렌즈는 .md 원문, HTML 앱은 .html. 저장한 경로를 돌려준다(없으면 "")
+async function storeVersionFile(skillId: number, slug: string, version: string, parsed: ParsedSkill | null, lensText: string | null, html: string | null = null) {
+  if (html !== null) {
+    const path = `skills/${skillId}/versions/${version}.html`;
+    // text/plain: Storage 주소로 직접 열려도 실행되지 않게. 실행은 /skills/[slug]/app 이 격리 헤더를 붙여서만.
+    await upload(path, new TextEncoder().encode(html), "text/plain; charset=utf-8");
+    return path;
+  }
   if (parsed) {
     const path = `skills/${skillId}/versions/${version}.zip`;
     await upload(path, inFolder(parsed.zip, installDirName(parsed.skillMd, slug)), "application/zip");
@@ -254,8 +267,9 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
       if (!tmp.lens) throw new UploadError("렌즈 .md 파일을 선택하세요");
       lensFile = await readLens(tmp.lens);
     }
+    const htmlFile = type === "app" ? await readHtml(tmp.html) : null;
     const meta = await readMeta(db, viewer, form, {
-      name: parsed?.name ?? lensFile?.lens.name,
+      name: parsed?.name ?? lensFile?.lens.name ?? (htmlFile?.title || undefined),
       summary: parsed?.description,
       author_name: user.name,
       author_email: user.email,
@@ -267,7 +281,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
     let skillId = 0;
     try {
       await db.tx(async (t) => {
-        slug = await uniqueSlug(t, slugify(parsed?.name ?? meta.name, type === "lens" ? "expert" : "skill"));
+        slug = await uniqueSlug(t, slugify(parsed?.name ?? meta.name, type === "lens" ? "expert" : type === "app" ? "app" : "skill"));
         skillId = (await one<{ id: number }>(
           t,
           `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, based_on_skill_id, visibility,
@@ -276,7 +290,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
           [slug, meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, user.id, meta.based_on_skill_id, meta.visibility,
            meta.maker, meta.install_cmd, meta.homepage_url, meta.person, meta.basis, lensFile?.lens.operations.join(",") ?? ""],
         ))!.id;
-        const zipPath = await storeVersionFile(skillId, slug, version, parsed, lensFile?.text ?? null); // 링크형은 파일 없음("")
+        const zipPath = await storeVersionFile(skillId, slug, version, parsed, lensFile?.text ?? null, htmlFile?.text ?? null); // 링크형은 파일 없음("")
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
           skillId, version, zipPath, parsed?.skillMd ?? lensFile?.text ?? "", user.id, "최초 등록",
         ]);
@@ -291,7 +305,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
     if (e instanceof UploadError) return { error: e.message };
     throw e;
   } finally {
-    await remove([tmp.zip, tmp.lens, ...tmp.images, tmp.demo].filter(Boolean) as string[]);
+    await remove([tmp.zip, tmp.lens, tmp.html, ...tmp.images, tmp.demo].filter(Boolean) as string[]);
   }
   revalidatePath("/");
   redirect(`/skills/${slug}`);
@@ -349,10 +363,11 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
   try {
     let parsed: ParsedSkill | null = null;
     let lensFile: { text: string; lens: ParsedLens } | null = null;
+    const htmlFile = skill.post_type === "app" ? await readHtml(tmp.html) : null;
     if (skill.post_type === "lens") {
       if (!tmp.lens) throw new UploadError("렌즈 .md 파일을 선택하세요");
       lensFile = await readLens(tmp.lens);
-    } else {
+    } else if (!htmlFile) {
       if (!tmp.zip) throw new UploadError("스킬 zip 파일을 선택하세요");
       parsed = parseSkillZip(await download(tmp.zip));
     }
@@ -362,7 +377,7 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
     }
     try {
       await db.tx(async (t) => {
-        const path = await storeVersionFile(skill.id, skill.slug, version, parsed, lensFile?.text ?? null);
+        const path = await storeVersionFile(skill.id, skill.slug, version, parsed, lensFile?.text ?? null, htmlFile?.text ?? null);
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
           skill.id, version, path, parsed?.skillMd ?? lensFile?.text ?? "", user.id, text(form, "changelog", 2000),
         ]);
@@ -376,7 +391,7 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
     if (e instanceof UploadError) return { error: e.message };
     throw e;
   } finally {
-    await remove([tmp.zip, tmp.lens].filter(Boolean) as string[]);
+    await remove([tmp.zip, tmp.lens, tmp.html].filter(Boolean) as string[]);
   }
   revalidatePath(`/skills/${slug}`);
   redirect(`/skills/${slug}`);
