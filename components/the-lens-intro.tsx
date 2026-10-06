@@ -32,8 +32,9 @@ export default function TheLensIntro() {
             이 탭에서는 The Lens 의 <b className="text-lens-ink/85">전문가 렌즈(.md)</b>를 올리고 내려받습니다. 렌즈는 실존 인물의 공개된 방법론을 분석 기준으로 삼으며,
             인물을 흉내 내거나 그 사람의 견해를 대변하지 않습니다.
           </p>
-          <div className="mt-6 flex flex-wrap gap-2 text-sm">
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <Link href="/write?category=expert" className="rounded-xl bg-lens px-5 py-2.5 font-bold text-white hover:bg-lens-deep">렌즈 올리기</Link>
+            <span className="text-lens-ink/70">시스템 사용 문의는 <b className="text-lens-deep">김민석 프로</b>에게 연락해 주세요</span>
           </div>
         </div>
 

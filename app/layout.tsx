@@ -41,11 +41,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               </Link>
               <NavMenu />
               {/* 유리 위에서도 입력칸임이 분명하게: 불투명 흰 바탕 + 또렷한 테두리 + 돋보기 */}
-              <form action="/skills" role="search" className="relative ml-auto hidden w-60 xl:block">
+              <form action="/skills" role="search" className="relative ml-auto hidden w-60 min-[1400px]:block">
                 <svg aria-hidden viewBox="0 0 20 20" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="9" r="6" /><path d="m14 14 4 4" strokeLinecap="round" /></svg>
                 <input name="q" aria-label="스킬 검색" placeholder="어떤 스킬을 찾으세요?" className="w-full rounded-xl border border-black/15 bg-white py-2 pl-9 pr-3 shadow-[inset_0_1px_2px_rgb(0_0_0/0.04)] outline-none placeholder:text-black/50 focus:border-black/40 focus:ring-2 focus:ring-accent" />
               </form>
-              <div className="ml-auto flex items-center gap-1 xl:ml-0">
+              <div className="ml-auto flex items-center gap-1 min-[1400px]:ml-0">
                 <span className="hidden max-w-32 truncate px-2 font-bold sm:inline">{user.name || user.email}</span>
                 <Link href="/me" className={link}>내정보</Link>
                 <Link href="/inbox" className={`${link} flex items-center`}>알림함<Badge n={unread} /></Link>

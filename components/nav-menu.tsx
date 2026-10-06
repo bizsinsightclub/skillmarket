@@ -34,8 +34,8 @@ export default function NavMenu() {
           <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
             {m.icon}
           </svg>
-          {/* md~lg 사이(로고 옆에 끼는 폭)에선 아이콘만, 휴대폰 둘째 줄과 넓은 화면에선 이름까지 */}
-          <span className="md:max-lg:hidden">{m.label}</span>
+          {/* md~xl 사이(로고 옆에 끼는 폭)에선 아이콘만(이름은 title 로), 휴대폰 둘째 줄과 1280px 이상에선 이름까지 */}
+          <span className="md:max-xl:hidden">{m.label}</span>
         </Link>
       ))}
     </div>
