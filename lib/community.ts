@@ -124,6 +124,24 @@ export async function listPosts(db: Db, opts: { page?: number; q?: string; limit
   return { rows, total };
 }
 
+// 글 화면 아래 이동: 이전 글(더 오래된 글)·다음 글(더 새 글), 그리고 지금 글이 들어 있는 목록 쪽 번호
+export async function postNeighbors(db: Db, id: number) {
+  const r = (await one<{ prev_id: number | null; prev_title: string | null; next_id: number | null; next_title: string | null; newer: number }>(
+    db,
+    `SELECT pv.id AS prev_id, pv.title AS prev_title, nx.id AS next_id, nx.title AS next_title,
+            (SELECT COUNT(*)::int FROM app.posts WHERE id > $1) AS newer
+     FROM (SELECT 1) x
+     LEFT JOIN LATERAL (SELECT id, title FROM app.posts WHERE id < $1 ORDER BY id DESC LIMIT 1) pv ON true
+     LEFT JOIN LATERAL (SELECT id, title FROM app.posts WHERE id > $1 ORDER BY id LIMIT 1) nx ON true`,
+    [id],
+  ))!;
+  return {
+    prev: r.prev_id ? { id: r.prev_id, title: r.prev_title! } : null,
+    next: r.next_id ? { id: r.next_id, title: r.next_title! } : null,
+    page: Math.floor(r.newer / BOARD_PAGE) + 1, // 목록은 최신순
+  };
+}
+
 export type Post = PostInput & { id: number; author_id: number; author: string; created_at: Date; updated_at: Date; reactions: number; reacted: boolean };
 
 export function getPost(db: Db, id: number, viewerId: number) {

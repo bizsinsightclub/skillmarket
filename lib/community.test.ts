@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
 import {
   addComment, listComments, deleteComment, countComments, toggleCommentReaction, togglePostReaction,
-  createPost, updatePost, deletePost, getPost, listPosts, readPost, CommunityError,
+  createPost, updatePost, deletePost, getPost, listPosts, readPost, postNeighbors, CommunityError,
 } from "./community.ts";
 import { listNotices, unreadNotices } from "./queries.ts";
 
@@ -98,4 +98,17 @@ test("알림: 내 글의 남의 댓글, 내 댓글의 남의 답글(중복 없�
   const b = await listNotices(db, 3);
   assert.equal(b[0].href.replace(/#c\d+$/, ""), `/board/${post}`);
   assert.equal(b[0].name, "소식");
+});
+
+test("글 이동: 이전(오래된)·다음(새) 글과 이 글이 들어 있는 목록 쪽", async () => {
+  const db = await testDb(SEED);
+  const ids: number[] = [];
+  for (let i = 1; i <= 22; i++) ids.push(await createPost(db, 2, { title: `글 ${i}`, body_md: "x", link_url: "" }));
+  const first = await postNeighbors(db, ids[0]); // 가장 오래된 글 → 최신순 목록의 2쪽
+  assert.deepEqual([first.prev, first.next?.title, first.page], [null, "글 2", 2]);
+  const last = await postNeighbors(db, ids[21]);
+  assert.deepEqual([last.prev?.title, last.next, last.page], ["글 21", null, 1]);
+  assert.equal((await postNeighbors(db, ids[2])).page, 1); // 글 3 은 최신 20개 안
+  await deletePost(db, ids[1], { id: 2, editor: false });
+  assert.equal((await postNeighbors(db, ids[0])).next?.title, "글 3"); // 지운 글은 건너뜀
 });

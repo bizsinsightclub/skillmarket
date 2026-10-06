@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
-import { fmtDate } from "@/lib/format";
 import { BOARD_PAGE, listPosts } from "@/lib/community";
+import PostList from "@/components/post-list";
 
 // AI Breakthrough 게시판 목록. 메뉴 색은 앰버(헤더 메뉴 상자의 menu-board)
 export default async function BoardPage({ searchParams }: PageProps<"/board">) {
@@ -36,24 +36,7 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
       {rows.length === 0 ? (
         <p className="glass rounded-2xl py-16 text-center text-black/50">{q ? "검색 결과가 없습니다." : "아직 글이 없습니다. 눈여겨본 AI 소식을 첫 글로 올려 보세요."}</p>
       ) : (
-        <ul className="panel divide-y divide-black/5 overflow-hidden rounded-2xl">
-          {rows.map((p) => (
-            <li key={p.id}>
-              <Link href={`/board/${p.id}`} className="block px-5 py-4 hover:bg-amber-50/60">
-                <p className="flex items-center gap-2 font-semibold">
-                  <span className="min-w-0 truncate">{p.title}</span>
-                  {p.link_url && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">{new URL(p.link_url).hostname.replace(/^www\./, "")}</span>}
-                </p>
-                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-black/45">
-                  <span>{p.author}</span>
-                  <span>{fmtDate(p.created_at)}</span>
-                  {p.comments > 0 && <span>댓글 {p.comments}</span>}
-                  {p.reactions > 0 && <span>♥ {p.reactions}</span>}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <PostList rows={rows} />
       )}
 
       {pages > 1 && (

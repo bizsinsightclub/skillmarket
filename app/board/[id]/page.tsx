@@ -3,25 +3,33 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
-import { getPost } from "@/lib/community";
+import { getPost, listPosts, postNeighbors } from "@/lib/community";
 import { deletePostAction, togglePostReactionAction } from "@/lib/community-actions";
 import Markdown from "@/components/markdown";
 import Comments from "@/components/comments";
 import SubmitButton from "@/components/submit-button";
+import PostList from "@/components/post-list";
 
 export default async function PostPage({ params }: PageProps<"/board/[id]">) {
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) notFound();
   const { viewer } = await requireViewer();
-  const post = await getPost(getDb(), id, viewer.id);
+  const db = getDb();
+  const post = await getPost(db, id, viewer.id);
   if (!post) notFound();
+  // 글 아래: 이전·다음 글 + 이 글이 들어 있는 목록 쪽(목록 화면과 같은 20개)
+  const near = await postNeighbors(db, id);
+  const { rows } = await listPosts(db, { page: near.page });
+  const listHref = near.page > 1 ? `/board?page=${near.page}` : "/board";
   const mine = viewer.editor || viewer.id === post.author_id;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <span hidden data-tab="/board" />
       <article className="panel rounded-3xl p-6 sm:p-10">
-        <Link href="/board" className="text-sm text-black/45 hover:text-ink">AI Breakthrough</Link>
+        <Link href={listHref} className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:text-amber-900">
+          <span aria-hidden>←</span> AI Breakthrough 목록
+        </Link>
         <h1 className="mt-2 break-words text-3xl font-extrabold tracking-[-0.03em]">{post.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3 text-sm text-black/50">
           <span className="font-semibold text-black/70">{post.author}</span>
@@ -61,6 +69,31 @@ export default async function PostPage({ params }: PageProps<"/board/[id]">) {
       </article>
 
       <Comments target={{ postId: post.id }} viewer={viewer} />
+
+      {/* 다 읽은 뒤 갈 곳: 이전·다음 글, 목록, 같은 쪽의 다른 글들 */}
+      <nav aria-label="글 이동" className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+        {near.prev ? (
+          <Link href={`/board/${near.prev.id}`} className="glass min-w-0 rounded-2xl px-4 py-3 hover:text-ink">
+            <span className="block text-xs text-black/45">← 이전 글</span>
+            <span className="block truncate font-semibold">{near.prev.title}</span>
+          </Link>
+        ) : <span />}
+        <Link href={listHref} className="whitespace-nowrap rounded-2xl bg-amber-500 px-5 py-3 font-bold text-white hover:bg-amber-600">목록으로</Link>
+        {near.next ? (
+          <Link href={`/board/${near.next.id}`} className="glass min-w-0 rounded-2xl px-4 py-3 text-right hover:text-ink">
+            <span className="block text-xs text-black/45">다음 글 →</span>
+            <span className="block truncate font-semibold">{near.next.title}</span>
+          </Link>
+        ) : <span />}
+      </nav>
+
+      <section>
+        <div className="mb-3 flex items-end justify-between">
+          <h2 className="text-lg font-extrabold tracking-[-0.02em]">AI Breakthrough 글</h2>
+          <Link href="/board/new" className="rounded-xl bg-amber-500 px-3.5 py-1.5 text-sm font-bold text-white hover:bg-amber-600">글쓰기</Link>
+        </div>
+        <PostList rows={rows} current={post.id} />
+      </section>
     </div>
   );
 }
