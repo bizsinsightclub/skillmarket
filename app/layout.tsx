@@ -21,9 +21,9 @@ function Badge({ n }: { n: number }) {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
   const editor = isEditor(user);
-  // 에디터는 검수 대기함(대기 건수), 일반 사용자는 알림함(안 읽은 수)
-  const badge = user ? await (editor ? countPending(getDb()) : unreadNotices(getDb(), user.id)) : 0;
-  const link = "whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium text-black/65 hover:bg-white/70 hover:text-ink";
+  // 알림함(안 읽은 수)은 모두, 에디터는 검수 대기함(대기 건수)도
+  const [unread, pending] = user ? await Promise.all([unreadNotices(getDb(), user.id), editor ? countPending(getDb()) : 0]) : [0, 0];
+  const link = "whitespace-nowrap rounded-lg px-2 py-1.5 font-medium text-black/65 hover:bg-white/70 hover:text-ink sm:px-2.5";
 
   return (
     <html lang="ko" className="h-full antialiased">
@@ -32,10 +32,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             로그인 전(= 로그인 화면)엔 그리지 않는다 — 로그인 화면이 로고를 직접 쓴다 */}
         {user && (
           <header className="sticky top-3 z-30 px-3 sm:px-6">
-            <nav className="glass mx-auto flex max-w-[1400px] items-center gap-4 rounded-2xl py-2 pl-4 pr-2 text-sm">
-              <Link href="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-lg font-extrabold tracking-tight">
-                <CheilLogo className="h-[18px] w-auto" />
-                <span aria-hidden className="h-4 w-px bg-black/20" />
+            <nav className="glass mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-2 gap-y-2 rounded-2xl py-2 pl-3 pr-2 text-sm sm:gap-x-4 sm:pl-4">
+              <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-extrabold tracking-tight sm:gap-2.5">
+                {/* 휴대폰에선 한 줄에 들어가게 서비스 이름만 */}
+                <CheilLogo className="h-[18px] w-auto max-sm:hidden" />
+                <span aria-hidden className="h-4 w-px bg-black/20 max-sm:hidden" />
                 스킬마켓
               </Link>
               <NavMenu />
@@ -47,12 +48,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <div className="ml-auto flex items-center gap-1 xl:ml-0">
                 <span className="hidden max-w-32 truncate px-2 font-bold sm:inline">{user.name || user.email}</span>
                 <Link href="/me" className={link}>내정보</Link>
-                {editor ? (
-                  <Link href="/editor" className={`${link} flex items-center`}>검수대기함<Badge n={badge} /></Link>
-                ) : (
-                  <Link href="/inbox" className={`${link} flex items-center`}>알림함<Badge n={badge} /></Link>
-                )}
-                <Link href="/write" className="ml-1 whitespace-nowrap rounded-xl bg-ink px-4 py-2 font-bold text-white hover:bg-black">올리기</Link>
+                <Link href="/inbox" className={`${link} flex items-center`}>알림함<Badge n={unread} /></Link>
+                {editor && <Link href="/editor" className={`${link} flex items-center`}><span className="max-sm:hidden">검수대기함</span><span className="sm:hidden">검수</span><Badge n={pending} /></Link>}
+                <Link href="/write" className="ml-1 whitespace-nowrap rounded-xl bg-ink px-3 py-2 font-bold text-white hover:bg-black sm:px-4">올리기</Link>
               </div>
             </nav>
           </header>

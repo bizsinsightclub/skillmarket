@@ -203,33 +203,46 @@ export function listPending(db: Db) {
   );
 }
 
-// 알림함: 내 글에 대한 검수 결과 + 다른 사람의 좋아요. 별도 알림 테이블 없이 기존 기록에서 만든다.
-export type Notice = { kind: "review" | "like"; created_at: Date; slug: string; name: string; decision: string | null; note: string | null; actor: string };
+// 알림함: 내 글에 대한 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 알림 테이블 없이 기존 기록에서 만든다.
+// 내 글의 답글이 내 댓글에 달린 것이면 'reply' 하나로만 센다.
+export type Notice = {
+  kind: "review" | "like" | "comment" | "reply";
+  created_at: Date;
+  href: string;
+  name: string; // 스킬 이름 또는 게시판 글 제목
+  decision: string | null;
+  note: string | null;
+  actor: string;
+};
+
+const COMMENT_PLACE = `LEFT JOIN app.skills s ON s.id = c.skill_id LEFT JOIN app.posts p ON p.id = c.post_id`;
+const COMMENT_HREF = `COALESCE('/skills/' || s.slug, '/board/' || p.id) || '#c' || c.id`;
+const NOTICES = `
+  SELECT 'review' AS kind, r.created_at, '/skills/' || s.slug AS href, s.name, r.decision, r.note, u.name AS actor
+  FROM app.curation_reviews r JOIN app.skills s ON s.id = r.skill_id JOIN app.users u ON u.id = r.editor_id
+  WHERE s.owner_id = $1 AND r.editor_id <> $1
+  UNION ALL
+  SELECT 'like', l.created_at, '/skills/' || s.slug, s.name, NULL, NULL, COALESCE(NULLIF(u.name, ''), u.email)
+  FROM app.likes l JOIN app.skills s ON s.id = l.skill_id JOIN app.users u ON u.id = l.user_id
+  WHERE s.owner_id = $1 AND l.user_id <> $1
+  UNION ALL
+  SELECT 'comment', c.created_at, ${COMMENT_HREF}, COALESCE(s.name, p.title), NULL, NULL, COALESCE(NULLIF(u.name, ''), u.email)
+  FROM app.comments c JOIN app.users u ON u.id = c.author_id ${COMMENT_PLACE}
+  LEFT JOIN app.comments pc ON pc.id = c.parent_id
+  WHERE COALESCE(s.owner_id, p.author_id) = $1 AND c.author_id <> $1 AND NOT c.deleted AND (pc.id IS NULL OR pc.author_id <> $1)
+  UNION ALL
+  SELECT 'reply', c.created_at, ${COMMENT_HREF}, COALESCE(s.name, p.title), NULL, NULL, COALESCE(NULLIF(u.name, ''), u.email)
+  FROM app.comments c JOIN app.users u ON u.id = c.author_id JOIN app.comments pc ON pc.id = c.parent_id ${COMMENT_PLACE}
+  WHERE pc.author_id = $1 AND c.author_id <> $1 AND NOT c.deleted`;
 
 export function listNotices(db: Db, userId: number, limit = 50) {
-  return db.query<Notice>(
-    `SELECT * FROM (
-       SELECT 'review' AS kind, r.created_at, s.slug, s.name, r.decision, r.note, u.name AS actor
-       FROM app.curation_reviews r JOIN app.skills s ON s.id = r.skill_id JOIN app.users u ON u.id = r.editor_id
-       WHERE s.owner_id = $1 AND r.editor_id <> $1
-       UNION ALL
-       SELECT 'like', l.created_at, s.slug, s.name, NULL, NULL, COALESCE(NULLIF(u.name, ''), u.email)
-       FROM app.likes l JOIN app.skills s ON s.id = l.skill_id JOIN app.users u ON u.id = l.user_id
-       WHERE s.owner_id = $1 AND l.user_id <> $1
-     ) n ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(200, limit))}`,
-    [userId],
-  );
+  return db.query<Notice>(`SELECT * FROM (${NOTICES}) n ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(200, limit))}`, [userId]);
 }
 
 export async function unreadNotices(db: Db, userId: number) {
   return (await one<{ n: number }>(
     db,
-    `SELECT (
-       (SELECT COUNT(*) FROM app.curation_reviews r JOIN app.skills s ON s.id = r.skill_id
-         WHERE s.owner_id = $1 AND r.editor_id <> $1 AND r.created_at > u.inbox_seen_at)
-     + (SELECT COUNT(*) FROM app.likes l JOIN app.skills s ON s.id = l.skill_id
-         WHERE s.owner_id = $1 AND l.user_id <> $1 AND l.created_at > u.inbox_seen_at)
-     )::int AS n FROM app.users u WHERE u.id = $1`,
+    `SELECT COUNT(*)::int AS n FROM (${NOTICES}) n, app.users u WHERE u.id = $1 AND n.created_at > u.inbox_seen_at`,
     [userId],
   ))?.n ?? 0;
 }

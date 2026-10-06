@@ -8,12 +8,13 @@
 
 ## 화면
 
-- `/` 홈 — 소개 한 줄 + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 최근 선정 순, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션: 요즘 뜨는 스킬(최근 7일 활동 있는 것만) · 새로 올라온 스킬 · 추천 플러그인·MCP. 검색은 헤더 하나만.
+- `/` 홈 — 소개 한 줄 + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 최근 선정 순, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션: 요즘 뜨는 스킬(최근 7일 활동 있는 것만) · 새로 올라온 스킬 · 전문가 렌즈 · AI Breakthrough 최근 글 · 추천 플러그인·MCP. 검색은 헤더 하나만.
 - `/skills` 스킬 · `/plugins` 플러그인·MCP · `/experts` 전문가 렌즈 · `/picks` 에디터 픽 — 모두 `components/catalog.tsx`. 탭(전체/에디터 픽), 그 종류의 분류 칩, 정렬(최신·트렌딩·인기, `/picks` 는 최근 선정), 검색(`?q=`, 헤더 검색창은 `/skills`), 카드 그리드, 페이지네이션(20개). 스킬과 플러그인·MCP 는 목록에서 섞지 않는다(`listBoard` 의 `kind`).
   - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
-- `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요, 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
+- `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
+- `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
 - **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
 
 ## 에디터 픽 (큐레이티드와 통합 — 2026-10-02)
@@ -33,7 +34,15 @@
 - 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 처리한 저장소는 `briefing_seen` 에 남겨, 에디터가 지운 글이 다음 브리핑에 또 나와도 되살리지 않는다. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
 - ponytail: README 를 읽어 설치 명령·주의점을 채우는 건 하지 않는다(LLM 필요) — 지금은 브리핑 설명 + 저장소 링크만, 나머지는 에디터가 수정.
 
-## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다 — 댓글 등)
+## 댓글·공감 (2026-10-06)
+
+- 스킬·플러그인·렌즈 글과 게시판 글 아래 같은 댓글 영역(`components/comments.tsx`). 평문(마크다운 아님), 2000자.
+- 대댓글은 한 단계: 답글의 답글도 최상위 댓글 아래에 붙는다(`lib/community.ts` 의 `addComment`).
+- 공감 = 사용자당 1회 토글(댓글·게시판 글). 스킬 글은 기존 좋아요를 그대로 쓴다.
+- 삭제는 글쓴이·에디터. 답글이 달린 댓글은 "삭제된 댓글" 자리만 남는다.
+- 비공개 스킬의 댓글: 쓰기·지우기·공감 모두 서버 액션이 `getSkill`(가시성)로 다시 확인한다 — 못 보는 사람은 404.
+
+## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다)
 
 0. **세 종류의 글** — 분류의 `categories.post_type`(skill·link·lens)이 정한다. 코드에 분류 이름을 하드코딩하지 않는다. (`needs_zip` 컬럼은 미사용 — 다음 정리 때 삭제)
    - 스킬(zip): 아래 1~6 전부.
@@ -42,7 +51,7 @@
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
-     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 검수대기함(에디터)/알림함(일반) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플). 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
+     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기), 로고는 '스킬마켓' 글자만. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
    - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
@@ -115,6 +124,10 @@ curation_reviews(id, skill_id, version_id, editor_id→users, decision, note, cr
 snapshots(id, skill_id, kind['image'|'demo'], path, sort_order)
 likes(user_id, skill_id, created_at)
 installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용 이벤트 로그
+posts(id, author_id, title, body_md, link_url, created_at, updated_at)            -- AI Breakthrough
+comments(id, skill_id NULL, post_id NULL, parent_id NULL, author_id, body, deleted, created_at)  -- 둘 중 하나에만
+comment_reactions(user_id, comment_id) · post_reactions(user_id, post_id)
+briefing_seen(url)                                          -- 브리핑에서 처리한 저장소
 ```
 좋아요·설치 수는 집계 쿼리. 느려지면 그때 카운터 컬럼.
 트렌딩 점수 = 최근 7일 (설치 + 좋아요 × 3).
@@ -147,6 +160,7 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 ```
 app/                  라우트
 lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 실행기
+                      community.ts 댓글·공감·게시판 규칙(테스트)   community-actions.ts 그 서버 액션
                       link-post.ts 링크형 글(플러그인·MCP) 입력 검증
                       lens-file.ts The Lens 렌즈 .md 검증·추출
                       test-db.ts   테스트용 PGlite(메모리 Postgres) Db
@@ -157,7 +171,7 @@ lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 �
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
                       briefing.ts  브리핑 메일 해석·글 등록      briefing-mail.ts Gmail IMAP(보낸편지함)
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
-components/           skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
+components/           comments·comment-form(댓글 영역), post-form(게시판 글), submit-button(처리 중 표시), skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
 db/migrations/        *.sql (Postgres, app 스키마)
 ```

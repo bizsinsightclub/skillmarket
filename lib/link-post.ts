@@ -11,15 +11,16 @@ export function readLinkFields(raw: LinkFields): LinkFields {
   const homepage_url = raw.homepage_url.trim().slice(0, 500);
   if (!maker) throw new UploadError("만든 곳(제작자)을 입력하세요");
   if (!install_cmd && !homepage_url) throw new UploadError("설치 명령이나 공식 페이지 중 하나는 입력하세요");
-  if (homepage_url) {
-    let u: URL;
-    try {
-      u = new URL(homepage_url);
-    } catch {
-      throw new UploadError("공식 페이지 주소가 올바르지 않습니다");
-    }
-    // javascript:, data: 같은 주소가 링크로 박히지 않게
-    if (u.protocol !== "https:" && u.protocol !== "http:") throw new UploadError("공식 페이지는 http(s) 주소만 쓸 수 있습니다");
-  }
+  if (homepage_url && !isHttpUrl(homepage_url)) throw new UploadError("공식 페이지는 http(s) 주소만 쓸 수 있습니다");
   return { maker, install_cmd, homepage_url };
+}
+
+// javascript:, data: 같은 주소가 링크로 박히지 않게 — 사용자가 넣는 링크는 모두 이걸 거친다
+export function isHttpUrl(raw: string) {
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
 }

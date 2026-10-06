@@ -6,6 +6,7 @@ import { fmtDate } from "@/lib/format";
 import { parseLensFile } from "@/lib/lens-file";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
 import SubmitButton from "@/components/submit-button";
+import Comments from "@/components/comments";
 import { unpickAction } from "@/lib/editor-actions";
 import {
   canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, skillStats,
@@ -331,6 +332,8 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
             </Block>
             </>
           )}
+
+          <Comments target={{ skillId: skill.id }} viewer={viewer} />
         </div>
 
         <div className="flex flex-col gap-6">
