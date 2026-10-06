@@ -25,6 +25,14 @@
 - `curation_status` 는 마지막 검수 요청의 상태일 뿐(재검수 대기·반려 중에도 이전 승인 버전은 에디터 픽에 남는다).
 - 홈 조명·`/picks` 는 **최근 선정 순**(`sort=picked`, 승인 리뷰의 `created_at`) → 새로 검수 통과한 스킬이 앞에 온다. 비공개 글은 에디터 픽 목록에 나오지 않는다.
 
+## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
+
+- 매일 아침 mk.kansas@gmail.com 이 자기에게 보내는 "바이브코딩 아침 브리핑 - 날짜" 메일(GitHub 트렌딩 목록)을 **오픈소스 링크형 글 + 검수 대기(pending)** 로 올린다 → 에디터가 검수 대기함에서 설치 방법을 보태고 승인.
+- Vercel Cron(`vercel.json`, 매일 01:00 UTC = 10:00 KST) → `/api/cron/briefing`. `proxy.ts` 로그인 검사에서 빠지고 `Authorization: Bearer CRON_SECRET` 로만 연다.
+- 메일 읽기 `lib/briefing-mail.ts`: SMTP 와 같은 Gmail 앱 비밀번호로 IMAP, **보낸편지함에서만** 찾는다(최근 3일) — From 위조 메일로 글이 올라가지 않게. GitHub 주소(`https://github.com/owner/repo`)인 항목만.
+- 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
+- ponytail: README 를 읽어 설치 명령·주의점을 채우는 건 하지 않는다(LLM 필요) — 지금은 브리핑 설명 + 저장소 링크만, 나머지는 에디터가 수정.
+
 ## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다 — 댓글 등)
 
 0. **세 종류의 글** — 분류의 `categories.post_type`(skill·link·lens)이 정한다. 코드에 분류 이름을 하드코딩하지 않는다. (`needs_zip` 컬럼은 미사용 — 다음 정리 때 삭제)
@@ -131,7 +139,7 @@ installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `ALLOWED_EMAIL_DOMAINS`(선택). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑 Cron), `ALLOWED_EMAIL_DOMAINS`(선택). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 
@@ -146,6 +154,7 @@ lib/                  db.ts        Db 인터페이스(postgres.js) + 마이그�
                       mail.ts      SMTP 발송                  queries.ts 모든 스킬 조회(가시성 필터)
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
+                      briefing.ts  브리핑 메일 해석·글 등록      briefing-mail.ts Gmail IMAP(보낸편지함)
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
 components/           skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
