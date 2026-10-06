@@ -9,4 +9,7 @@ test("fitText: 짧으면 그대로, 길면 문장 단위, 첫 문장이 길면 �
   assert.ok(long.length <= 30 && long.endsWith("…"), long);
   assert.doesNotMatch(long, / …$/);
   assert.ok("아주 긴 첫 문장이 끝없이 이어지면서 칸을 넘어가는".startsWith(long.slice(0, -1)));
+  // 파일 이름·소수점의 점에서 끊지 않는다
+  assert.equal(fitText("네 가지 원칙. CLAUDE.md 한 장으로 Claude Code 를 더 신중하게", 30), "네 가지 원칙.");
+  assert.equal(fitText("버전 1.5 지원. 그리고 아주 긴 두 번째 문장이 이어집니다", 12), "버전 1.5 지원.");
 });

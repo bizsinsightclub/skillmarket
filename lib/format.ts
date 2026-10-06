@@ -14,12 +14,14 @@ export function fmtDate(d: Date, withTime = false) {
 export function fitText(text: string, max: number) {
   const t = text.replace(/\s+/g, " ").trim();
   if (t.length <= max) return t;
+  // 문장 끝 = . ! ? 뒤에 공백 ("CLAUDE.md", "1.5" 의 점은 문장 끝이 아니다)
   let out = "";
-  for (const s of t.match(/[^.!?]+[.!?]+\s*|[^.!?]+$/g) ?? []) {
-    if ((out + s).trim().length > max) break;
-    out += s;
+  for (const s of t.split(/(?<=[.!?])\s+/)) {
+    const next = out ? `${out} ${s}` : s;
+    if (next.length > max) break;
+    out = next;
   }
-  if (out.trim()) return out.trim();
+  if (out) return out;
   const cut = t.slice(0, max - 1);
   const sp = cut.lastIndexOf(" ");
   return (sp > max / 2 ? cut.slice(0, sp) : cut).replace(/[\s,·:;—-]+$/, "") + "…";
