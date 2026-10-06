@@ -63,11 +63,14 @@ export function parseBriefing(text: string): BriefingItem[] {
   return items;
 }
 
-// 이미 있는 글(같은 저장소 주소, 같은 이름, 또는 저장소 이름과 같은 slug)은 건너뛴다. 새로 만든 글의 slug 목록을 돌려준다.
+// 한 번 처리한 저장소(briefing_seen)와 이미 있는 글(같은 저장소 주소, 같은 이름, 저장소 이름과 같은 slug)은 건너뛴다.
+// 처리 기록은 글을 지워도 남는다 → 에디터가 지운 글이 다음 브리핑에서 되살아나지 않는다. 새로 만든 글의 slug 목록을 돌려준다.
 export async function ingestBriefing(db: Db, items: BriefingItem[], owner: { id: number; name: string; email: string }, source: string) {
   const created: string[] = [];
   await db.tx(async (t) => {
     for (const it of items) {
+      const fresh = await t.query("INSERT INTO app.briefing_seen (url) VALUES ($1) ON CONFLICT DO NOTHING RETURNING 1", [it.url.toLowerCase()]);
+      if (!fresh.length) continue;
       const dup = await one(
         t,
         "SELECT 1 FROM app.skills WHERE lower(rtrim(homepage_url, '/')) = lower($1) OR lower(name) = lower($2) OR slug = $3",

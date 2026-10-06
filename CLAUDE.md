@@ -30,7 +30,7 @@
 - 매일 아침 mk.kansas@gmail.com 이 자기에게 보내는 "바이브코딩 아침 브리핑 - 날짜" 메일(GitHub 트렌딩 목록)을 **오픈소스 링크형 글 + 검수 대기(pending)** 로 올린다 → 에디터가 검수 대기함에서 설치 방법을 보태고 승인.
 - Vercel Cron(`vercel.json`, 매일 01:00 UTC = 10:00 KST) → `/api/cron/briefing`. `proxy.ts` 로그인 검사에서 빠지고 `Authorization: Bearer CRON_SECRET` 로만 연다.
 - 메일 읽기 `lib/briefing-mail.ts`: SMTP 와 같은 Gmail 앱 비밀번호로 IMAP, **보낸편지함에서만** 찾는다(최근 3일) — From 위조 메일로 글이 올라가지 않게. GitHub 주소(`https://github.com/owner/repo`)인 항목만.
-- 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
+- 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 처리한 저장소는 `briefing_seen` 에 남겨, 에디터가 지운 글이 다음 브리핑에 또 나와도 되살리지 않는다. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
 - ponytail: README 를 읽어 설치 명령·주의점을 채우는 건 하지 않는다(LLM 필요) — 지금은 브리핑 설명 + 저장소 링크만, 나머지는 에디터가 수정.
 
 ## 핵심 기능 (이 범위 밖은 요청 전까지 만들지 않는다 — 댓글 등)

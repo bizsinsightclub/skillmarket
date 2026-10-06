@@ -26,8 +26,8 @@ https://github.com/rohitg00/ai-engineering-from-scratch
 
 [이번 주 깃허브 클로드 스킬·플러그인 TOP 3]
 
-11. fast-jev-compaction (별 7,398개)
-https://github.com/tamaratran/fast-jev-compaction
+11. tiny-plugin (별 7,398개)
+https://github.com/someone/tiny-plugin
 Claude Code 플러그인.
 
 ---
@@ -36,7 +36,7 @@ Claude Code 플러그인.
 
 test("브리핑 본문 해석: 묶음·이름·저장소·설명, 별 개수·끝 인사말은 버린다", () => {
   const items = parseBriefing(MAIL);
-  assert.deepEqual(items.map((i) => i.name), ["VoiceStudio", "hindsight", "ponytail", "ai-engineering-from-scratch", "fast-jev-compaction"]);
+  assert.deepEqual(items.map((i) => i.name), ["VoiceStudio", "hindsight", "ponytail", "ai-engineering-from-scratch", "tiny-plugin"]);
   assert.equal(items[0].url, "https://github.com/debpalash/VoiceStudio");
   assert.equal(items[0].maker, "debpalash");
   assert.equal(items[0].section, "10월 1주차 GitHub 트렌딩 TOP 10");
@@ -59,14 +59,16 @@ test("저장: 검수 대기로, 묶음에 맞는 분류, 이미 있는 글은 �
   `);
   const owner = { id: 1, name: "에디터", email: "ed@samsung.com" };
   const items = parseBriefing(MAIL);
-  assert.deepEqual(await ingestBriefing(db, items, owner, "브리핑"), ["voicestudio", "hindsight", "fast-jev-compaction"]);
+  assert.deepEqual(await ingestBriefing(db, items, owner, "브리핑"), ["voicestudio", "hindsight", "tiny-plugin"]);
   assert.deepEqual(await ingestBriefing(db, items, owner, "브리핑"), []); // 다시 돌려도 중복 없음
+  await db.query("DELETE FROM app.skills WHERE slug = 'hindsight'");
+  assert.deepEqual(await ingestBriefing(db, items, owner, "브리핑"), []); // 에디터가 지운 글은 되살리지 않는다
   const rows = await db.query<{ slug: string; curation_status: string; category: string; n: number }>(
     `SELECT s.slug, s.curation_status, s.category, (SELECT COUNT(*)::int FROM app.skill_versions v WHERE v.skill_id = s.id) AS n
-     FROM app.skills s WHERE s.slug IN ('voicestudio', 'fast-jev-compaction') ORDER BY s.slug`,
+     FROM app.skills s WHERE s.slug IN ('voicestudio', 'tiny-plugin') ORDER BY s.slug`,
   );
   assert.deepEqual(rows, [
-    { slug: "fast-jev-compaction", curation_status: "pending", category: "plugin", n: 1 },
+    { slug: "tiny-plugin", curation_status: "pending", category: "plugin", n: 1 },
     { slug: "voicestudio", curation_status: "pending", category: "oss", n: 1 },
   ]);
 });
