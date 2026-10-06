@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireViewer } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getSkill, type Kind } from "@/lib/queries";
+import { fitText } from "@/lib/format";
 
 // 이미지를 올리지 않은 글의 썸네일을 입력한 정보(이름·요약·종류·만든 곳/기반·태그)로 그린다.
 // URL 에 ?v=<updated_at> 를 붙여 부르므로 글이 바뀌면 새 주소 → 캐시는 길게.
@@ -31,7 +32,10 @@ export async function GET(_req: Request, ctx: RouteContext<"/skills/[slug]/cover
     .map((c) => c.trim())
     .filter(Boolean)
     .slice(0, 4);
-  const nameSize = s.name.length > 14 ? 76 : s.name.length > 8 ? 92 : 112;
+  // 칸 높이로 잘라내지 않고, 들어갈 만큼만 문장·어절 단위로 넣는다(중간에서 잘린 채 끝나지 않게)
+  const name = fitText(s.name, 40);
+  const summary = fitText(s.summary, 84); // 32px 로 약 3줄
+  const nameSize = name.length > 24 ? 64 : name.length > 14 ? 76 : name.length > 8 ? 92 : 112;
 
   return new ImageResponse(
     (
@@ -46,14 +50,14 @@ export async function GET(_req: Request, ctx: RouteContext<"/skills/[slug]/cover
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, fontSize: 28, fontWeight: 500, color: "rgba(255,255,255,0.72)" }}>
             <div style={{ width: 14, height: 14, borderRadius: 7, background: t.dot }} />
-            {eyebrow}
+            {fitText(eyebrow, 48)}
           </div>
-          <div style={{ fontSize: nameSize, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, maxHeight: nameSize * 2.2, overflow: "hidden" }}>
-            {s.name}
+          <div style={{ fontSize: nameSize, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, wordBreak: "keep-all" }}>
+            {name}
           </div>
-          {s.summary && (
-            <div style={{ marginTop: 26, fontSize: 32, fontWeight: 500, lineHeight: 1.4, color: "rgba(255,255,255,0.78)", maxHeight: 90, overflow: "hidden" }}>
-              {s.summary}
+          {summary && (
+            <div style={{ marginTop: 26, fontSize: 32, fontWeight: 500, lineHeight: 1.4, color: "rgba(255,255,255,0.78)", wordBreak: "keep-all" }}>
+              {summary}
             </div>
           )}
         </div>

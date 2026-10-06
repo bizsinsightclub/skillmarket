@@ -8,9 +8,9 @@ export function byline(s: Pick<BoardRow, "post_type" | "maker" | "author_name" |
   return `by ${s.author_name}`;
 }
 
-// 이미지가 없는 글은 입력한 정보로 서버가 그린 표지(/skills/[slug]/cover). updated_at 이 캐시 키라 글을 고치면 새로 그린다
+// 이미지가 없는 글은 입력한 정보로 서버가 그린 표지(/skills/[slug]/cover). updated_at 이 캐시 키라 글을 고치면 새로 그린다 (.2 = 표지 그리는 방식이 바뀌면 올린다)
 export function coverUrl(slug: string, updatedAt: Date | string) {
-  return `/skills/${slug}/cover?v=${new Date(updatedAt).getTime()}`;
+  return `/skills/${slug}/cover?v=${new Date(updatedAt).getTime()}.2`;
 }
 
 export function Thumb({ path, slug, name, updatedAt, className = "" }: { path: string | null; slug: string; name: string; updatedAt: Date | string; className?: string }) {
