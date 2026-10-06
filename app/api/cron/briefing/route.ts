@@ -19,9 +19,9 @@ export async function GET(req: Request) {
   let items = 0;
   const created: string[] = [];
   for (const mail of mails) {
-    const b = parseBriefing(mail.text);
-    items += b.items.length;
-    created.push(...(await ingestBriefing(db, b.items, owner, `${mail.subject}${b.heading ? ` (${b.heading})` : ""}`)));
+    const parsed = parseBriefing(mail.text);
+    items += parsed.length;
+    created.push(...(await ingestBriefing(db, parsed, owner, mail.subject)));
   }
   if (created.length) revalidatePath("/", "layout");
   return Response.json({ mails: mails.length, items, created });
