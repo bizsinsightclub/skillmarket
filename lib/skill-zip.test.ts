@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { strToU8, unzipSync, zipSync } from "fflate";
-import { parseSkillZip, sniffImage, slugify, installDirName, UploadError } from "./skill-zip.ts";
+import { parseSkillZip, sniffImage, slugify, installDirName, inFolder, UploadError } from "./skill-zip.ts";
 
 const MD = "---\nname: my-skill\ndescription: >\n  여러 줄\n  설명\n---\n# 본문\n";
 const zip = (files: Record<string, string>) => zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)])));
@@ -50,4 +50,26 @@ test("slug·설치 폴더명", () => {
   assert.equal(slugify("한글 이름"), "skill");
   assert.equal(installDirName(MD, "x"), "my-skill");
   assert.equal(installDirName("---\nname: 한글\n---", "fallback"), "fallback");
+});
+
+test("스킬 이름 규격(Claude 앱 업로드 기준)", () => {
+  for (const bad of ["My-Skill", "my skill", "한글", "-x", "x--y", "claude-helper", "a".repeat(65)]) {
+    assert.throws(() => parseSkillZip(zip({ "SKILL.md": `---
+name: ${bad}
+description: d
+---
+` })), /name/, bad);
+  }
+  assert.throws(() => parseSkillZip(zip({ "SKILL.md": `---
+name: ok
+description: ${"d".repeat(1025)}
+---
+` })), /1024/);
+});
+
+test("받는 ZIP 은 <이름>/ 폴더 하나로 묶는다", () => {
+  const r = parseSkillZip(zip({ "my-skill/SKILL.md": MD, "my-skill/scripts/a.py": "x" }));
+  const wrapped = inFolder(r.zip, "my-skill");
+  assert.deepEqual(Object.keys(unzipSync(wrapped)).sort(), ["my-skill/SKILL.md", "my-skill/scripts/a.py"]);
+  assert.equal(inFolder(wrapped, "my-skill"), wrapped); // 두 번 감싸지 않는다
 });

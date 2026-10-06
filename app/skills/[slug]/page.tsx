@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getDb, one } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
-import { installDirName } from "@/lib/skill-zip";
 import { parseLensFile } from "@/lib/lens-file";
 import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
 import { unpickAction } from "@/lib/editor-actions";
@@ -58,10 +57,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   const contributors = [...new Map(versions.map((v) => [v.uploader_email, v.uploader_name || v.uploader_email])).values()];
   // 에디터 픽이면 설치 버튼은 검수받은 버전을 준다(승인 뒤 올라온 새 버전은 검수 전)
   const shown = curated ?? latest;
-  const dir = installDirName(shown.skill_md, skill.slug);
   const zipName = `${skill.slug}-${shown.version}.zip`;
-  const unixCmd = `mkdir -p ~/.claude/skills/${dir} && unzip -o ${zipName} -d ~/.claude/skills/${dir}`;
-  const winCmd = `Expand-Archive ${zipName} -DestinationPath $HOME\\.claude\\skills\\${dir} -Force`;
+  // ZIP 안이 <스킬 이름>/ 폴더 하나라 skills 폴더에 그대로 풀면 된다(Claude 앱에 올리는 파일과 같다)
+  const unixCmd = `unzip -o ${zipName} -d ~/.claude/skills/`;
+  const winCmd = `Expand-Archive ${zipName} -DestinationPath $HOME\\.claude\\skills -Force`;
   const tags = skill.tags ? skill.tags.split(",") : [];
   const images = snapshots.filter((s) => s.kind === "image");
   const demo = snapshots.find((s) => s.kind === "demo");
@@ -69,6 +68,9 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
   const isLink = skill.post_type === "link";
   const isLens = skill.post_type === "lens";
+  // 플러그인 마켓플레이스(`/plugin marketplace add owner/repo`)면 Claude 앱에서도 같은 저장소로 추가할 수 있다
+  const marketplace = isLink ? skill.install_cmd.match(/\/plugin marketplace add (\S+)/)?.[1] : undefined;
+  const pluginName = isLink ? skill.install_cmd.match(/\/plugin install ([^@\s]+)/)?.[1] : undefined;
   const lensPrompt = isLens ? lensPromptOf(shown.skill_md) : "";
   const bands = skill.bands ? skill.bands.split(",") : [];
   const vl = (v: string) => (isLink ? "" : `v${v}`);
@@ -162,10 +164,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-2 gap-2">
-                <CopyButton text={unixCmd} label="설치 명령 복사" className="rounded-2xl bg-ink px-4 py-3.5 text-sm font-bold text-white hover:bg-black" />
-                <a href={`/skills/${skill.slug}/download?v=${shown.id}`} className="rounded-2xl bg-white/80 px-4 py-3.5 text-center text-sm font-bold ring-1 ring-black/10 hover:bg-white">
+                <a href={`/skills/${skill.slug}/download?v=${shown.id}`} className="rounded-2xl bg-ink px-4 py-3.5 text-center text-sm font-bold text-white hover:bg-black">
                   ZIP 받기
                 </a>
+                <CopyButton text={unixCmd} label="Claude Code 명령 복사" className="rounded-2xl bg-white/80 px-4 py-3.5 text-sm font-bold ring-1 ring-black/10 hover:bg-white" />
               </div>
             )}
             {curated && curated.id !== latest.id && (
@@ -252,9 +254,20 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
 
           {isLink ? (
             <Block title="설치 방법">
+              {marketplace && (
+                <>
+                  <h3 className="mb-2 text-sm font-bold">Claude 앱 (웹 · 데스크톱)</h3>
+                  <ol className="mb-5 list-decimal space-y-1 pl-5 text-sm text-black/70">
+                    <li>왼쪽 메뉴 <b>Customize</b> → <b>Plugins</b> → <b>Add</b> → <b>Add marketplace</b></li>
+                    <li><b>Add from a repository</b> 에 <code className="rounded bg-paper px-1.5">{marketplace}</code> 입력</li>
+                    <li><b>Discover</b> 탭에서 {pluginName ? <b>{pluginName}</b> : "플러그인"} 을 찾아 <b>Add</b></li>
+                  </ol>
+                  <h3 className="mb-2 text-sm font-bold">Claude Code (터미널)</h3>
+                </>
+              )}
               {skill.install_cmd ? (
                 <>
-                  <p className="mb-3 text-sm text-black/60">Claude Code 에서 차례로 입력하세요.</p>
+                  {skill.install_cmd.startsWith("/") && <p className="mb-3 text-sm text-black/60">Claude Code 에서 차례로 입력하세요.</p>}
                   <div className="flex items-start gap-2">
                     <pre className="min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-xl bg-paper p-3 text-sm">{skill.install_cmd}</pre>
                     <CopyButton text={skill.install_cmd} label="복사" className="shrink-0 rounded-xl px-3 py-3 text-xs ring-1 ring-black/10" />
@@ -266,6 +279,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               {skill.homepage_url && (
                 <a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-sm underline">{skill.homepage_url}</a>
               )}
+              {marketplace && <p className="mt-4 text-xs text-black/50">앱에서 추가한 플러그인은 같은 계정으로 로그인한 Claude Code 에도 들어옵니다. 유료 플랜(Pro·Max·Team·Enterprise)에서 쓸 수 있습니다.</p>}
             </Block>
           ) : isLens ? (
             <>
@@ -285,6 +299,16 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
           ) : (
             <>
           <Block title="설치 방법">
+              <h3 className="mb-2 text-sm font-bold">Claude 앱 (웹 · 데스크톱)</h3>
+              <ol className="mb-2 list-decimal space-y-1 pl-5 text-sm text-black/70">
+                <li><b>ZIP 받기</b> (압축은 풀지 않습니다)</li>
+                <li>왼쪽 메뉴 <b>Customize</b> → <b>Skills</b> → <b>+</b> → <b>Create skill</b> → <b>Upload a skill</b></li>
+                <li>받은 ZIP 을 올리고 스킬을 켭니다</li>
+              </ol>
+              <p className="mb-5 text-xs text-black/50">
+                설정의 <b>Code execution and file creation</b> 이 켜져 있어야 합니다. 앱에 올린 스킬은 같은 계정으로 로그인한 Claude Code 에도 들어옵니다.
+              </p>
+              <h3 className="mb-2 text-sm font-bold">Claude Code (터미널)</h3>
               <p className="mb-3 text-sm text-black/60">ZIP 을 받은 폴더에서 실행하세요.</p>
               <p className="mb-1 text-xs text-black/45">macOS · Linux · Git Bash</p>
               <div className="mb-4 flex items-start gap-2">

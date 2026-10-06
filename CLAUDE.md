@@ -39,7 +39,7 @@
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
    - 수정할 때 글 종류(스킬·링크형·렌즈) 사이로 분류를 바꿀 수 없다.
 
-1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다.
+1. **업로드** — 스킬 폴더 zip. `SKILL.md` 는 zip 루트 또는 최상위 폴더 한 겹 안. frontmatter `name`·`description` 필수, 이름·요약 기본값으로 쓴다. `name` 은 Claude 스킬 규격(영문 소문자·숫자·하이픈 64자, anthropic·claude 금지), `description` 1024자 이내 — 어긋나면 Claude 앱 업로드가 거부되므로 올릴 때 막는다.
    - 서버는 zip 을 디스크에 풀지 않는다. 메모리에서 검사한 뒤 **다시 묶어서**(정규 파일만, SKILL.md 루트) 저장 → 심볼릭 링크·이상한 속성이 설치자에게 가지 않는다.
 2. **원작자 크레딧**
    - 원작자 1명(`author_name` + `author_email`). 올린 사람 ≠ 원작자일 수 있어 따로 입력(기본값 = 내 정보). 원작자는 가입자가 아니어도 된다.
@@ -49,7 +49,7 @@
 3. **좋아요** — 사용자당 스킬 1회 토글. `(user_id, skill_id)` PK 로 DB 가 중복을 막는다.
 4. **스냅샷(결과물 미리보기)** — 이미지 여러 장(첫 장이 썸네일) + 선택적 데모 HTML 1개. 데모는 `<iframe sandbox="allow-scripts">` 로만. `allow-same-origin` 절대 금지.
 5. **설명** — 요약(한 줄), 본문(마크다운), 분류, 태그, `SKILL.md` 원문, 버전 이력.
-6. **설치** — zip 다운로드 + 복사용 설치 명령(`~/.claude/skills/<name>/` 에 풀기). 다운로드 시 설치 수 +1.
+6. **설치** — 받는 zip 은 안에 `<name>/` 폴더 하나(`inFolder`, Claude 앱 업로드 규격). 상세에 두 가지 안내: Claude 앱(웹·데스크톱)은 Customize → Skills → Upload a skill 로 zip 그대로, Claude Code 는 `~/.claude/skills/` 에 풀기. 앱에 올린 스킬·플러그인은 같은 계정의 Claude Code 에도 동기화된다. 플러그인 글은 `/plugin marketplace add owner/repo` 에서 저장소를 뽑아 앱 안내(Customize → Plugins → Add marketplace)도 보여 준다. 다운로드 시 설치 수 +1.
 7. **공개 범위** — `public`(전사) / `restricted`(지정한 이메일만). 소유자가 언제든 전환.
    - `restricted` 는 허용 이메일(`skill_access`) + 소유자 + 에디터만 본다. 허용 이메일은 아직 가입 안 한 사람이어도 된다.
    - 목록·검색·게시글·다운로드·스냅샷 파일·원작자 집계 **모든 경로**에서 동일하게 막는다 → 스킬 조회는 반드시 `lib/queries.ts` 의 가시성 필터를 거친다. 직접 `SELECT … FROM skills` 금지.

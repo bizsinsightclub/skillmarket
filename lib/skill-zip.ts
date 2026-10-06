@@ -77,8 +77,20 @@ export function parseSkillZip(buf: Uint8Array): ParsedSkill {
   const name = typeof fm.name === "string" ? fm.name.trim() : "";
   const description = typeof fm.description === "string" ? fm.description.trim() : "";
   if (!name || !description) throw new UploadError("SKILL.md 앞부분(frontmatter)에 name 과 description 이 필요합니다");
+  // Claude 스킬 규격 — 어긋나면 Claude 앱(웹·데스크톱) 업로드가 거부된다
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name) || name.length > 64 || /anthropic|claude/.test(name)) {
+    throw new UploadError("SKILL.md 의 name 은 영문 소문자·숫자·하이픈 64자 이내여야 하고 anthropic·claude 를 넣을 수 없습니다 (예: my-skill)");
+  }
+  if (description.length > 1024) throw new UploadError("SKILL.md 의 description 은 1024자 이내여야 합니다");
 
   return { name, description, skillMd, fileCount: Object.keys(files).length, zip: zipSync(files, { level: 6 }) };
+}
+
+// 받는 ZIP 규격: 안에 <스킬 이름>/ 폴더 하나. Claude 앱 업로드가 이 구조만 받고, Claude Code 도 skills 폴더에 그대로 풀면 된다.
+export function inFolder(zip: Uint8Array, dir: string) {
+  const files = unzipSync(zip);
+  if (!files["SKILL.md"]) return zip; // 이미 폴더째
+  return zipSync(Object.fromEntries(Object.entries(files).map(([p, d]) => [`${dir}/${p}`, d])), { level: 6 });
 }
 
 // 설치 폴더 이름: frontmatter name 이 폴더명으로 쓸 만하면 그대로, 아니면 slug

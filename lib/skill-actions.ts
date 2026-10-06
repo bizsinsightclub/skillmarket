@@ -7,7 +7,7 @@ import { getDb, one, type Db } from "./db";
 import { requireUser, requireViewer } from "./auth";
 import { normalizeEmail } from "./login";
 import { canEdit, getSkill, type Viewer } from "./queries";
-import { MAX_ZIP_BYTES, UploadError, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
+import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
 import type { Kind } from "./queries";
@@ -183,10 +183,10 @@ async function readDemo(path: string | undefined) {
 }
 
 // 버전 파일 저장: 스킬은 다시 묶은 zip, 렌즈는 .md 원문. 저장한 경로를 돌려준다(없으면 "")
-async function storeVersionFile(skillId: number, version: string, parsed: ParsedSkill | null, lensText: string | null) {
+async function storeVersionFile(skillId: number, slug: string, version: string, parsed: ParsedSkill | null, lensText: string | null) {
   if (parsed) {
     const path = `skills/${skillId}/versions/${version}.zip`;
-    await upload(path, parsed.zip, "application/zip");
+    await upload(path, inFolder(parsed.zip, installDirName(parsed.skillMd, slug)), "application/zip");
     return path;
   }
   if (lensText !== null) {
@@ -276,7 +276,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
           [slug, meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, user.id, meta.based_on_skill_id, meta.visibility,
            meta.maker, meta.install_cmd, meta.homepage_url, meta.person, meta.basis, lensFile?.lens.operations.join(",") ?? ""],
         ))!.id;
-        const zipPath = await storeVersionFile(skillId, version, parsed, lensFile?.text ?? null); // 링크형은 파일 없음("")
+        const zipPath = await storeVersionFile(skillId, slug, version, parsed, lensFile?.text ?? null); // 링크형은 파일 없음("")
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
           skillId, version, zipPath, parsed?.skillMd ?? lensFile?.text ?? "", user.id, "최초 등록",
         ]);
@@ -362,7 +362,7 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
     }
     try {
       await db.tx(async (t) => {
-        const path = await storeVersionFile(skill.id, version, parsed, lensFile?.text ?? null);
+        const path = await storeVersionFile(skill.id, skill.slug, version, parsed, lensFile?.text ?? null);
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
           skill.id, version, path, parsed?.skillMd ?? lensFile?.text ?? "", user.id, text(form, "changelog", 2000),
         ]);
