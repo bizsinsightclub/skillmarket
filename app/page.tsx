@@ -2,8 +2,6 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { listBoard } from "@/lib/queries";
-import { listPosts } from "@/lib/community";
-import { fmtDate } from "@/lib/format";
 import { SkillGrid, byline, coverUrl } from "@/components/skill-card";
 import PickSpotlight from "@/components/pick-spotlight";
 
@@ -25,14 +23,13 @@ function Section({ title, sub, href, lens = false, children }: { title: string; 
 export default async function HomePage() {
   const { viewer } = await requireViewer();
   const db = getDb();
-  const [picks, trending, latest, plugins, experts, posts] = await Promise.all([
+  const [picks, trending, latest, plugins, experts] = await Promise.all([
     // 최근에 에디터 픽이 된 순 → 새로 검수 통과한 스킬이 조명 앞쪽에 온다
     listBoard(db, viewer, { tab: "pick", sort: "picked", limit: 12 }),
     listBoard(db, viewer, { kind: "skill", sort: "trending", limit: 8 }),
     listBoard(db, viewer, { kind: "skill", limit: 8 }),
     listBoard(db, viewer, { kind: "link", sort: "popular", limit: 4 }),
     listBoard(db, viewer, { kind: "lens", sort: "popular", limit: 4 }),
-    listPosts(db, { limit: 5 }),
   ]);
   const hot = trending.rows.filter((r) => r.trend > 0); // 최근 활동이 있는 것만 (없으면 최신 목록과 똑같아짐)
 
@@ -71,21 +68,6 @@ export default async function HomePage() {
       {experts.total > 0 && (
         <Section title="전문가 렌즈" sub="The Lens 에서 쓰는 분야별 전문가 관점" href="/experts" lens>
           <SkillGrid rows={experts.rows} />
-        </Section>
-      )}
-      {posts.total > 0 && (
-        <Section title="AI Breakthrough" sub="동료들이 나누는 AI 소식과 의견" href="/board">
-          <ul className="panel divide-y divide-black/5 overflow-hidden rounded-2xl">
-            {posts.rows.map((p) => (
-              <li key={p.id}>
-                <Link href={`/board/${p.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-amber-50/60">
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                  <span className="min-w-0 flex-1 truncate font-semibold">{p.title}</span>
-                  <span className="hidden shrink-0 text-xs text-black/45 sm:inline">{p.author} · {fmtDate(p.created_at)}{p.comments > 0 && ` · 댓글 ${p.comments}`}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         </Section>
       )}
       {plugins.total > 0 && (
