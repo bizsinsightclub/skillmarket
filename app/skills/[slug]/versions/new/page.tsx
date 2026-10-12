@@ -23,7 +23,7 @@ export default async function NewVersionPage({ params }: PageProps<"/skills/[slu
       <h1 className="mb-1 text-3xl font-extrabold tracking-[-0.03em]">{skill.name} 새 버전</h1>
       <p className="mb-6 text-sm text-black/60">
         현재 v{latest.version}
-        {skill.curated_version_id ? " · 에디터 픽은 검수를 다시 받기 전까지 기존 승인 버전을 유지합니다" : ""}
+        {skill.visibility === "public" ? " · 새 버전은 자동으로 검수 요청되고, 승인되기 전까지 다른 사람에게는 이전 승인 버전이 보입니다" : ""}
       </p>
       <VersionForm action={addVersion.bind(null, slug)} suggested={bump(latest.version)} kind={skill.post_type === "lens" || skill.post_type === "app" ? skill.post_type : "skill"} />
     </div>

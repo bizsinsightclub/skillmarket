@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
-import { listBoard } from "@/lib/queries";
+import { hallOfFame, listBoard, myContribution } from "@/lib/queries";
 import { SkillGrid, byline, coverUrl } from "@/components/skill-card";
 import PickSpotlight from "@/components/pick-spotlight";
 
@@ -23,8 +23,10 @@ function Section({ title, sub, href, lens = false, children }: { title: string; 
 export default async function HomePage() {
   const { viewer } = await requireViewer();
   const db = getDb();
-  const [picks, trending, latest, plugins, experts] = await Promise.all([
-    // 최근에 에디터 픽이 된 순 → 새로 검수 통과한 스킬이 조명 앞쪽에 온다
+  const [mine, fame, picks, trending, latest, plugins, experts] = await Promise.all([
+    myContribution(db, viewer.email),
+    hallOfFame(db, { days: 30, limit: 5 }),
+    // 최근에 에디터 픽으로 고른 순 → 새로 고른 글이 조명 앞쪽에 온다
     listBoard(db, viewer, { tab: "pick", sort: "picked", limit: 12 }),
     listBoard(db, viewer, { kind: "skill", sort: "trending", limit: 8 }),
     listBoard(db, viewer, { kind: "skill", limit: 8 }),
@@ -46,6 +48,26 @@ export default async function HomePage() {
         </div>
       </div>
 
+      {/* 내 기여 현황: 공유한 것이 쓰이고 있다는 걸 첫 화면에서 보이게 */}
+      <div className="glass mb-10 flex flex-wrap items-center gap-x-8 gap-y-4 rounded-3xl px-6 py-5">
+        <p className="text-sm font-bold">내 기여</p>
+        {mine.skills + mine.waiting === 0 ? (
+          <p className="mr-auto text-sm text-black/60">아직 올린 스킬이 없습니다. 동료가 받아 가고 써 보면 여기에 쌓입니다.</p>
+        ) : (
+          <>
+            {[["공개된 내 글", mine.skills], ["받아 간 사람", mine.installs], ["이번 달", mine.month], ["써봤어요", mine.uses]].map(([label, n]) => (
+              <div key={label} className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-extrabold tabular-nums tracking-tight">{label === "이번 달" ? `+${n}` : n}</span>
+                <span className="text-xs text-black/50">{label}</span>
+              </div>
+            ))}
+            {mine.waiting > 0 && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">검수 대기 {mine.waiting}</span>}
+            <Link href={`/u/${encodeURIComponent(viewer.email)}`} className="ml-auto text-sm font-medium text-black/60 hover:text-ink">내 원작자 페이지 →</Link>
+          </>
+        )}
+        {mine.skills + mine.waiting === 0 && <Link href="/write" className="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white">스킬 올리기</Link>}
+      </div>
+
       {picks.rows.length > 0 && (
         <div className="mb-16">
           <PickSpotlight
@@ -60,6 +82,23 @@ export default async function HomePage() {
       {hot.length > 0 && (
         <Section title="🔥 요즘 뜨는 스킬" sub="최근 7일 설치·좋아요 기준" href="/skills?sort=trending">
           <SkillGrid rows={hot} />
+        </Section>
+      )}
+      {fame.length > 0 && (
+        <Section title="이달의 기여자" sub="최근 30일, 동료가 받아 가고 써본 스킬의 원작자" href="/hall">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {fame.map((f) => (
+              <li key={f.author_email}>
+                <Link href={`/u/${encodeURIComponent(f.author_email)}`} className="glass flex items-center gap-3 rounded-2xl p-4 hover:-translate-y-0.5 transition">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink font-bold text-accent">{f.author_name[0]}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-bold">{f.author_name}</span>
+                    <span className="block text-xs text-black/55">받아 감 {f.installs} · 써봤어요 {f.uses}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
       <Section title="새로 올라온 스킬" href="/skills">

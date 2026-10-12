@@ -8,24 +8,47 @@
 
 ## 화면
 
-- `/` 홈 — 소개 한 줄 + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 최근 선정 순, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션: 요즘 뜨는 스킬(최근 7일 활동 있는 것만) · 새로 올라온 스킬 · 전문가 렌즈 · 추천 플러그인·MCP. (AI Breakthrough 는 홈에 넣지 않는다 — 메뉴로만, 2026-10-06) 검색은 헤더 하나만.
+- `/` 홈 — 소개 한 줄 + **내 기여**(공개된 내 글·받아 간 사람·이번 달·써봤어요) + **에디터 픽 조명**(`components/pick-spotlight.tsx`, 최근 선정 순, 6초마다 회전, 호버·포커스·탭 숨김·동작 줄이기 설정 시 정지) + 섹션: 요즘 뜨는 스킬(최근 7일 활동 있는 것만) · 이달의 기여자 · 새로 올라온 스킬 · 전문가 렌즈 · 추천 플러그인·MCP. (AI Breakthrough 는 홈에 넣지 않는다 — 메뉴로만, 2026-10-06) 검색은 헤더 하나만.
 - `/skills` 스킬 · `/plugins` 플러그인·MCP · `/experts` 전문가 렌즈 · `/picks` 에디터 픽 — 모두 `components/catalog.tsx`. 탭(전체/에디터 픽), 그 종류의 분류 칩, 정렬(최신·트렌딩·인기, `/picks` 는 최근 선정), 검색(`?q=`, 헤더 검색창은 `/skills`), 카드 그리드, 페이지네이션(20개). 스킬과 플러그인·MCP 는 목록에서 섞지 않는다(`listBoard` 의 `kind`).
-  - 카드: 썸네일 위 왼쪽 배지(에디터 픽/검수 완료/비공개), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
+  - 카드: 썸네일 위 왼쪽 배지(에디터 픽/비공개/검수 대기 — 검수 대기는 올린 사람·원작자·에디터 목록에만), 오른쪽 아래 설치·좋아요 수, 아래 이름·분류·요약·원작자.
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
+- `/hall` 명예의 전당(최근 30일·전체) · `/write/template` SKILL.md 양식 zip
 - `/u/[email]` 원작자 페이지(합계 + 카드) · `/me` 내 정보 · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
 - `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 본문 이미지 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
   - 본문 이미지: 버튼·붙여넣기·끌어다 놓기 → 브라우저가 tmp 에 직접 올림 → `attachBoardImage` 가 바이트로 판별(png/jpg/webp/gif, 장당 5MB)해 `board/<uuid>` 로 옮기고 `post_images` 에 등록 → 커서 자리에 `![](/files/board/…)`. `/files` 는 등록된 board 경로만, 로그인한 사람 누구나. ponytail: 저장 안 한 글·지운 글의 이미지는 남는다(정리 미구현).
 - **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
 
-## 에디터 픽 (큐레이티드와 통합 — 2026-10-02)
+## 검수 필수 · 에디터 픽 (2026-10-12 — 승인과 에디터 픽을 다시 분리)
 
-- **에디터 픽 = 에디터가 승인한 글**(`curated_version_id IS NOT NULL`). 따로 켜고 끄는 픽 플래그는 없다(`skills.editor_pick` 컬럼은 미사용 — 다음 정리 때 삭제).
-- 흐름: 작성자가 검수 요청 → 에디터가 승인(= 에디터 픽) / 반려(사유 필수). 에디터는 요청 없이도 승인 가능, "에디터 픽에서 내리기"로 해제.
-- 승인은 에디터가 본 `version_id` 로 고정 → 이후 새 버전이 올라와도 에디터 픽은 승인된 버전을 보여주고 설치시킨다(상세의 설치 버튼·SKILL.md = 승인 버전, 최신은 '검수 전' 보조 링크). 새 버전은 다시 검수 요청해야 교체.
-- 링크형은 설치 명령·공식 페이지가 버전 파일 대신 → 에디터가 아닌 사람이 이걸 바꾸면 에디터 픽이 내려간다(재검수).
-- `curation_status` 는 마지막 검수 요청의 상태일 뿐(재검수 대기·반려 중에도 이전 승인 버전은 에디터 픽에 남는다).
-- 홈 조명·`/picks` 는 **최근 선정 순**(`sort=picked`, 승인 리뷰의 `created_at`) → 새로 검수 통과한 스킬이 앞에 온다. 비공개 글은 에디터 픽 목록에 나오지 않는다.
+- **검수 필수**: 전사 공개(`public`) 글은 링크형(플러그인·MCP·오픈소스)을 빼고 **승인(`curated_version_id`)돼야 남에게 보인다**. 올린 사람·원작자(`author_email`)·에디터는 승인 전에도 본다. 지정 공개(`restricted`)는 검수 없이 지정한 사람에게 보인다. 규칙은 `lib/queries.ts` 의 `visible()` 하나.
+- 새 글·새 버전·전사 공개 전환 때 자동으로 검수 대기(`autoRequest`). 승인은 에디터가 본 `version_id` 로 고정 → 새 버전은 승인 전까지 남에게 안 보이고, 남은 **승인된 버전만** 받고 실행한다(`onlyApproved`·`pickVersion` — `?v=` 로 승인 전 버전을 달라고 해도 404). 예전에 승인된 버전은 계속 받을 수 있다.
+- 승인 뒤 에디터가 아닌 사람이 이름·요약·설명·태그·이미지·데모를 바꾸면 다시 검수 대기(`requeue`). ponytail: 고친 내용은 바로 보인다(오타 하나에 글이 숨지 않게) — 에디터가 대기함에서 보고 문제면 승인 취소. 저장만 누르면 그대로.
+- 승인 취소(또는 공개 중인 그 버전을 반려)하면 `revoked_at` 이 찍혀 그 전에 받은 승인은 모두 무효 → 옛 버전을 `?v=` 로 다시 받지 못한다.
+- 에디터가 검토하는 사이 새 버전이 올라오면 승인 뒤에도 대기함에 남는다.
+- 검수 필수 전환(2026-10-12) 때 승인 없이 공개돼 있던 기존 글은 최신 버전으로 일괄 승인(검수 기록 없음, 마이그레이션 011).
+- **에디터 픽 = 승인된 글 중 에디터가 따로 고른 것**(`picked_at`). "승인 취소"(`revoke`)는 승인·픽을 함께 내린다(검수 필수 글은 다시 숨는다).
+- 링크형은 설치 명령·공식 페이지가 버전 파일 대신 → 에디터가 아닌 사람이 이걸 바꾸면 승인·픽이 내려간다(링크형은 그래도 보인다).
+- `curation_status` 는 마지막 검수 요청의 상태일 뿐(재검수 대기·반려 중에도 이전 승인 버전은 공개 유지).
+- 홈 조명·`/picks` 는 **최근 선정 순**(`sort=picked`, `picked_at`). 비공개 글은 에디터 픽 목록에 나오지 않는다.
+
+## 참여 선순환 (2026-10-12)
+
+공유 → 크레딧 → 재사용 → 인정 순으로 바퀴가 돌게. 공식화(인사 평가 연동)는 미정 → 지금은 **인정**(숫자·알림·명예의 전당)만.
+
+- **설치 수 = 받아 간 사람 수**: 사람당 한 번, 올린 사람·원작자 본인은 빼고 센다(`installers()`). `installs` 는 이벤트 로그 그대로. 기여 평가에 쓸 숫자라 다시 받기로 부풀릴 수 없게.
+- **써봤어요**(`uses`): 사람당 1회 토글, 본인 것은 누를 수 없다. 실제 사용 신호(스킬은 각자 PC 에서 돌아 사이트가 사용을 알 수 없다).
+- **원작자 확인**: 본인이 아닌 사람을 원작자로 적으면 `author_confirmed = NULL`(확인 대기) + 원작자에게 확인 메일(사내 메일만) + 알림함. 원작자가 "맞아요"→확인, "제가 아니에요"→출처 신고로 자동 접수. 원작자 이메일이 바뀌면 다시 확인 대기. 링크형의 추천인은 확인 절차 없음.
+  - 메일 한도(`mail_log`, 글을 지워도 남는다): 같은 사람 하루 3통, 전체 하루 30통. 넘으면 알림함으로만. Gmail 하루 약 500통 = 로그인 400 + 원작자 확인 30 + 월간 메일 60.
+- **원작자 변경 이력**(`author_history`): 바꿀 수는 있되(오기재 정정) 기록은 남고 상세에 보인다. 관리자도 저자를 못 바꾸게 하는 건 하지 않는다(DB 주인은 늘 바꿀 수 있고, 정정이 막히면 안 됨).
+- **출처 신고**(`reports`): 상세 하단에서 사유와 함께. 한 사람이 한 글에 열린 신고는 하나(부분 고유 인덱스). 에디터가 검수 대기함에서 처리 내용을 적어 닫으면 신고자 알림함으로.
+- **민감정보 검사**(`lib/sensitive.ts`): 업로드·수정·새 버전 때 입력한 글 + 파일 텍스트(zip 안 텍스트 파일 — UTF-8·UTF-16·EUC-KR, docx·pptx·xlsx 속 글자, 렌즈, HTML, 데모)에서 주민번호·휴대전화·API 키·개인 키·JWT·대외비 표시·`SENSITIVE_TERMS`(광고주명 등, 쉼표 구분 환경변수 — 영문은 단어 단위라 SK 가 SKILL 에 걸리지 않는다)를 찾으면 막는다. 에디터는 건너뛴다(잘못 걸린 글을 대신 올리게). 이미지·PDF 속 글자는 못 본다 → 에디터 검수. 이 사이트는 외부 클라우드라 **광고주·고객 정보는 태그로 가리지 않고 아예 받지 않는다**.
+- **등록 동의**: 올리기 화면 체크박스(서버가 다시 확인), `skills.agreed_at`. 문구는 "사내 구성원이 업무에 쓰고 고칠 수 있게 공유 · 원작자 이름과 이력은 기록 · 광고주·고객 정보·개인정보·키 없음". 공식화 전이라 '회사 귀속'은 넣지 않는다.
+- **기여 집계**(홈 '내 기여'·`/hall` 명예의 전당·월간 메일): 전사 공개·승인된 글만(모두에게 같은 숫자), 링크형 제외(추천이지 만든 것이 아님), 원작자가 부인한 글 제외. 순위 숫자는 붙이지 않는다.
+- **알림함**: 받아 감(사람·글당 한 번)·써봤어요·에디터 픽은 올린 사람과 원작자 모두에게, 원작자 확인 요청은 원작자에게, 신고 처리 결과는 신고자에게.
+- **월간 기여 메일**: Vercel Cron 매달 1~7일 09:00 KST → `/api/cron/monthly`(CRON_SECRET). 지난달 활동이 있는 사내 원작자에게만, 하루 60통씩 나눠서. 한 사람씩 `digest_sent(month, email)` 로 잡고 보내고, 실패하면 풀어 다음 날 다시 → 같은 달 한 번.
+- **SKILL.md 양식**: `/write/template` 가 `my-skill/SKILL.md` 양식 zip 을 준다(올리기 화면 zip 칸 옆 링크).
+- 미구현(요청 시): 부서별 현황(부서 칸이 자유 입력이라 집계 불가 → 고정 목록 필요), 공개 예약(embargo), 의미 검색, 인사 연동.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
 
@@ -72,7 +95,7 @@
 3. **좋아요** — 사용자당 스킬 1회 토글. `(user_id, skill_id)` PK 로 DB 가 중복을 막는다.
 4. **스냅샷(결과물 미리보기)** — 이미지 여러 장(첫 장이 썸네일) + 선택적 데모 HTML 1개. 데모는 `<iframe sandbox="allow-scripts">` 로만. `allow-same-origin` 절대 금지.
 5. **설명** — 요약(한 줄), 본문(마크다운), 분류, 태그, `SKILL.md` 원문, 버전 이력.
-6. **설치** — 받는 zip 은 안에 `<name>/` 폴더 하나(`inFolder`, Claude 앱 업로드 규격). 상세에 두 가지 안내: Claude 앱(웹·데스크톱)은 Customize → Skills → Upload a skill 로 zip 그대로, Claude Code 는 `~/.claude/skills/` 에 풀기. 앱에 올린 스킬·플러그인은 같은 계정의 Claude Code 에도 동기화된다. 플러그인 글은 `/plugin marketplace add owner/repo` 에서 저장소를 뽑아 앱 안내(Customize → Plugins → Add marketplace)도 보여 준다. 다운로드 시 설치 수 +1.
+6. **설치** — 받는 zip 은 안에 `<name>/` 폴더 하나(`inFolder`, Claude 앱 업로드 규격). 상세에 두 가지 안내: Claude 앱(웹·데스크톱)은 Customize → Skills → Upload a skill 로 zip 그대로, Claude Code 는 `~/.claude/skills/` 에 풀기. 앱에 올린 스킬·플러그인은 같은 계정의 Claude Code 에도 동기화된다. 플러그인 글은 `/plugin marketplace add owner/repo` 에서 저장소를 뽑아 앱 안내(Customize → Plugins → Add marketplace)도 보여 준다. 다운로드마다 `installs` 에 기록, 설치 수는 받아 간 사람 수(본인 제외)로 센다.
 7. **공개 범위** — `public`(전사) / `restricted`(지정한 이메일만). 소유자가 언제든 전환.
    - `restricted` 는 허용 이메일(`skill_access`) + 소유자 + 에디터만 본다. 허용 이메일은 아직 가입 안 한 사람이어도 된다.
    - 목록·검색·게시글·다운로드·스냅샷 파일·원작자 집계 **모든 경로**에서 동일하게 막는다 → 스킬 조회는 반드시 `lib/queries.ts` 의 가시성 필터를 거친다. 직접 `SELECT … FROM skills` 금지.
@@ -122,8 +145,9 @@ categories(slug, label, sort_order)
 skills(id, slug UNIQUE, name, summary, body_md, category, tags,
        author_name, author_email, owner_id→users, based_on_skill_id→skills NULL,
        visibility['public'|'restricted'],
-       curation_status['none'|'pending'|'approved'|'rejected'], curated_version_id NULL,
-       editor_pick, created_at, updated_at)
+       curation_status['none'|'pending'|'approved'|'rejected'], curated_version_id NULL,   -- 승인 버전
+       picked_at NULL, revoked_at NULL, author_confirmed NULL, agreed_at NULL,             -- 에디터 픽·승인 취소·원작자 확인·등록 동의
+       created_at, updated_at)
 skill_versions(id, skill_id, version, zip_path, skill_md, uploaded_by→users, changelog, created_at)
 skill_access(skill_id, email)
 curation_reviews(id, skill_id, version_id, editor_id→users, decision, note, created_at)
@@ -134,9 +158,14 @@ posts(id, author_id, title, body_md, link_url, created_at, updated_at)          
 comments(id, skill_id NULL, post_id NULL, parent_id NULL, author_id, body, deleted, created_at)  -- 둘 중 하나에만
 comment_reactions(user_id, comment_id) · post_reactions(user_id, post_id) · post_images(path, uploader_id)
 briefing_seen(url)                                          -- 브리핑에서 처리한 저장소
+uses(user_id, skill_id, created_at)                         -- 써봤어요
+author_history(id, skill_id, author_name, author_email, changed_by→users, created_at)
+reports(id, skill_id, reporter_id, reason, created_at, resolved_at, resolved_by, resolution)  -- 출처 신고
+digest_sent(month, email, sent_at)                          -- 월간 기여 메일 보낸 기록
+mail_log(id, kind, email, created_at)                       -- 알림 메일 발송 기록(한도용, 글 삭제와 무관)
 ```
 좋아요·설치 수는 집계 쿼리. 느려지면 그때 카운터 컬럼.
-트렌딩 점수 = 최근 7일 (설치 + 좋아요 × 3).
+트렌딩 점수 = 최근 7일 (받아 간 사람 + 좋아요 × 3).
 
 ## 보안 규칙 (생략 금지)
 
@@ -159,7 +188,7 @@ briefing_seen(url)                                          -- 브리핑에서 �
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑 Cron), `ALLOWED_EMAIL_DOMAINS`(선택). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 
@@ -175,7 +204,9 @@ lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 �
                       sign.ts      HMAC 서명·세션 토큰        login.ts  도메인 검사·인증 코드
                       mail.ts      SMTP 발송                  queries.ts 모든 스킬 조회(가시성 필터)
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
-                      curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
+                      curation.ts  승인·반려·에디터 픽·자동 검수 요청  format.ts 날짜(KST) 표시
+                      credit.ts    원작자 기록·확인, 출처 신고    sensitive.ts 업로드 민감정보 검사
+                      digest.ts    월간 기여 메일 대상 고르기
                       briefing.ts  브리핑 메일 해석·글 등록      briefing-mail.ts Gmail IMAP(보낸편지함)
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
 components/           comments·comment-form(댓글 영역), post-form(게시판 글), submit-button(처리 중 표시), skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)

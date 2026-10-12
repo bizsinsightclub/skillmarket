@@ -4,20 +4,21 @@ import { getDb, one } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 import { parseLensFile } from "@/lib/lens-file";
-import { deleteSkill, requestCuration, toggleLike } from "@/lib/skill-actions";
+import { answerAuthor, deleteSkill, reportSkill, requestCuration, toggleLike, toggleUse } from "@/lib/skill-actions";
 import SubmitButton from "@/components/submit-button";
 import Comments from "@/components/comments";
 import { APP_SANDBOX } from "@/lib/html-app";
-import { unpickAction } from "@/lib/editor-actions";
+import { pickAction, revokeAction } from "@/lib/editor-actions";
 import {
-  canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, skillStats,
+  authorHistory, canEdit, getSkill, lastReview, listAccess, listDerived, listSnapshots, listVersions, onlyApproved, skillStats,
 } from "@/lib/queries";
 import Markdown from "@/components/markdown";
 import ReviewForm from "@/components/review-form";
+import ReportForm from "@/components/report-form";
 import CopyButton from "@/components/copy-button";
 import { coverUrl } from "@/components/skill-card";
 
-const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "에디터 픽 선정", rejected: "반려됨" };
+const STATUS: Record<string, string> = { pending: "검수 대기 중", approved: "검수 승인", rejected: "반려됨" };
 
 // 렌즈 .md 의 시스템 프롬프트(첫 코드블록). 예전 파일이 형식에 안 맞아도 화면은 그려야 하니 원문으로 대체
 function lensPromptOf(md: string) {
@@ -45,7 +46,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   if (!skill) notFound();
 
   const editable = canEdit(viewer, skill);
-  const [versions, snapshots, stats, basedOn, derived, review, access, owner] = await Promise.all([
+  const [allVersions, snapshots, stats, basedOn, derived, review, access, owner, history] = await Promise.all([
     listVersions(db, skill.id),
     listSnapshots(db, skill.id),
     skillStats(db, skill.id, viewer.id),
@@ -54,11 +55,19 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
     editable ? lastReview(db, skill.id) : undefined,
     editable && skill.visibility === "restricted" ? listAccess(db, skill.id) : [],
     one<{ name: string; email: string }>(db, "SELECT name, email FROM app.users WHERE id = $1", [skill.owner_id]),
+    authorHistory(db, skill.id),
   ]);
+  // 검수 필수 글을 남이 보면 승인된 버전만(올린 사람·원작자·에디터는 전부)
+  const only = onlyApproved(viewer, skill);
+  const versions = only ? allVersions.filter((v) => v.approved) : allVersions;
   const latest = versions[0];
   const curated = versions.find((v) => v.id === skill.curated_version_id);
+  const picked = !!(skill.picked_at && curated);
+  const self = skill.owner_id === viewer.id || skill.author_email === viewer.email;
+  // 검수 필수 글(전사 공개·링크형 아님)인데 아직 승인 전 → 올린 사람·원작자·에디터에게만 보이는 상태
+  const awaiting = skill.visibility === "public" && skill.post_type !== "link" && !curated;
   const contributors = [...new Map(versions.map((v) => [v.uploader_email, v.uploader_name || v.uploader_email])).values()];
-  // 에디터 픽이면 설치 버튼은 검수받은 버전을 준다(승인 뒤 올라온 새 버전은 검수 전)
+  // 설치 버튼은 승인된 버전을 준다(승인 뒤 올라온 새 버전은 검수 전)
   const shown = curated ?? latest;
   const zipName = `${skill.slug}-${shown.version}.zip`;
   // ZIP 안이 <스킬 이름>/ 폴더 하나라 skills 폴더에 그대로 풀면 된다(Claude 앱에 올리는 파일과 같다)
@@ -129,9 +138,20 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="glass rounded-3xl p-7">
             <div className="mb-3 flex flex-wrap gap-1.5">
-              {curated && <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽 {vl(curated.version)}</span>}
+              {picked && <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽</span>}
+              {curated && <span className="rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-black/15">✓ 검수 완료 {vl(curated.version)}</span>}
+              {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">검수 대기 · 나와 에디터만 보임</span>}
               {skill.visibility === "restricted" && <span className="rounded-full bg-ink px-3 py-1 text-xs text-white">비공개</span>}
             </div>
+            {!isLink && skill.author_email === viewer.email && skill.author_confirmed === null && skill.owner_id !== viewer.id && (
+              <div className="mb-4 rounded-2xl bg-amber-50 p-4 text-sm ring-1 ring-amber-200">
+                <p><b>{owner?.name || owner?.email}</b> 님이 이 글의 원작자로 회원님을 적었습니다. 맞나요?</p>
+                <div className="mt-3 flex gap-2">
+                  <form action={answerAuthor.bind(null, skill.slug, true)}><button className="rounded-full bg-ink px-4 py-1.5 font-semibold text-white">맞아요</button></form>
+                  <form action={answerAuthor.bind(null, skill.slug, false)}><button className="rounded-full px-4 py-1.5 ring-1 ring-black/20">제가 아니에요</button></form>
+                </div>
+              </div>
+            )}
             <div className="flex items-start gap-3">
               <h1 className="mr-auto text-3xl font-extrabold leading-tight tracking-[-0.03em]">
                 {skill.name} {!isLink && <span className="align-middle text-sm font-normal text-black/40">v{shown.version}</span>}
@@ -157,9 +177,10 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               </div>
             )}
 
-            <div className="mt-5 flex items-center gap-4 text-sm text-black/60">
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-black/60">
               <span>♥ {stats.likes}</span>
-              {!isLink && <span>↓ {stats.installs}</span>}
+              {!isLink && <span title="받아 간 사람 수(본인 제외)">↓ {stats.installs}명</span>}
+              <span title="써봤어요를 누른 사람 수(본인 제외)">✓ 써봤어요 {stats.uses}</span>
               <span>업데이트 {fmtDate(skill.updated_at)}</span>
             </div>
 
@@ -195,7 +216,16 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 최신 v{latest.version} 받기 (검수 전)
               </a>
             )}
-            {!curated && <p className="mt-2 text-center text-xs text-black/50">에디터 검수 전 글입니다. 설치하기 전에 내용을 확인하세요.</p>}
+            {awaiting ? (
+              <p className="mt-2 text-center text-xs text-amber-800">검수 승인 전이라 아직 다른 사람에게 보이지 않습니다. 승인되면 알림함으로 알려 드립니다.</p>
+            ) : !curated && <p className="mt-2 text-center text-xs text-black/50">에디터 검수 전 글입니다. 설치하기 전에 내용을 확인하세요.</p>}
+            {!self && (
+              <form action={toggleUse.bind(null, skill.slug)} className="mt-3">
+                <button className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold ring-1 transition ${stats.used ? "bg-ink text-accent ring-ink" : "ring-black/15 hover:ring-black/40"}`}>
+                  {stats.used ? "✓ 써봤어요" : "써봤다면 눌러 주세요 — 원작자에게 큰 힘이 됩니다"}
+                </button>
+              </form>
+            )}
 
             <dl className="mt-6 space-y-2.5 border-t border-black/5 pt-5 text-sm">
               {isLens && (
@@ -212,7 +242,21 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               )}
               <div className="flex gap-3">
                 <dt className="w-16 shrink-0 text-black/45">{isLink ? "추천인" : "원작자"}</dt>
-                <dd><Link href={`/u/${encodeURIComponent(skill.author_email)}`} className="font-semibold hover:underline">{skill.author_name}</Link></dd>
+                <dd>
+                  <Link href={`/u/${encodeURIComponent(skill.author_email)}`} className="font-semibold hover:underline">{skill.author_name}</Link>
+                  {!isLink && skill.author_confirmed === null && <span className="ml-1.5 text-xs text-black/45">(원작자 확인 대기)</span>}
+                  {!isLink && skill.author_confirmed === false && <span className="ml-1.5 text-xs text-red-600">(원작자가 본인이 아니라고 함 · 에디터 확인 중)</span>}
+                  {history.length > 1 && (
+                    <details className="mt-1 text-xs text-black/55">
+                      <summary className="cursor-pointer">{isLink ? "추천인" : "원작자"} 변경 이력 {history.length - 1}건</summary>
+                      <ol className="mt-1 space-y-0.5">
+                        {history.map((h, i) => (
+                          <li key={i}>{fmtDate(h.created_at)} · {h.author_name} ({h.author_email}) <span className="text-black/40">— {i === 0 ? "등록" : "변경"}: {h.changed_by}</span></li>
+                        ))}
+                      </ol>
+                    </details>
+                  )}
+                </dd>
               </div>
               {basedOn && (
                 <div className="flex gap-3">
@@ -259,6 +303,9 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 </details>
               </div>
             )}
+            <div className="mt-5 border-t border-black/5 pt-4">
+              <ReportForm action={reportSkill.bind(null, skill.slug)} />
+            </div>
           </div>
         </aside>
       </div>
@@ -364,11 +411,15 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
 
         <div className="flex flex-col gap-6">
           {editable && (
-            <Block title="큐레이션">
+            <Block title="검수">
               <p className="text-sm">
                 {STATUS[skill.curation_status] ?? "검수 요청 안 함"}
-                {curated && <span className="text-black/50"> · 에디터 픽 {vl(curated.version)} 게시 중</span>}
+                {curated && <span className="text-black/50"> · {vl(curated.version) || "등록본"} 공개 중</span>}
+                {picked && <span className="text-black/50"> · 에디터 픽</span>}
               </p>
+              {awaiting && skill.curation_status !== "pending" && (
+                <p className="mt-2 text-xs text-black/55">전사 공개 글은 검수 승인 후에 다른 사람에게 보입니다.</p>
+              )}
               {review?.decision === "rejected" && skill.curation_status === "rejected" && (
                 <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">반려 사유 ({vl(review.version) || "등록본"}, {review.editor_name}): {review.note}</p>
               )}
@@ -381,15 +432,21 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <div className="mt-5 flex flex-col gap-3 border-t border-black/5 pt-5 text-sm">
                   <p className="font-semibold">에디터</p>
                   <ReviewForm skillId={skill.id} versionId={latest.id} version={isLink ? "" : latest.version} slug={skill.slug} />
-                  <div className="flex flex-wrap gap-2">
-                    {curated && (
-                      <form action={unpickAction}>
+                  {curated && (
+                    <div className="flex flex-wrap gap-2">
+                      <form action={pickAction}>
                         <input type="hidden" name="skill_id" value={ids.skill_id} />
                         <input type="hidden" name="slug" value={ids.slug} />
-                        <button className="rounded-full px-3 py-1.5 ring-1 ring-black/15">에디터 픽에서 내리기</button>
+                        <input type="hidden" name="on" value={picked ? "0" : "1"} />
+                        <button className={`rounded-full px-3 py-1.5 ${picked ? "ring-1 ring-black/15" : "bg-accent font-semibold"}`}>{picked ? "에디터 픽에서 내리기" : "✦ 에디터 픽으로 고르기"}</button>
                       </form>
-                    )}
-                  </div>
+                      <form action={revokeAction}>
+                        <input type="hidden" name="skill_id" value={ids.skill_id} />
+                        <input type="hidden" name="slug" value={ids.slug} />
+                        <button className="rounded-full px-3 py-1.5 text-red-600 ring-1 ring-red-200">승인 취소{isLink ? "" : " (다른 사람에게 숨김)"}</button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               )}
             </Block>
@@ -408,7 +465,9 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                 <li key={v.id} className="flex items-start gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
-                      v{v.version} {v.id === skill.curated_version_id && <span className="ml-1 rounded-full bg-accent px-2 text-xs">에디터 픽</span>}
+                      v{v.version} {v.id === skill.curated_version_id ? <span className="ml-1 rounded-full bg-accent px-2 text-xs">공개 중</span>
+                        : v.approved ? <span className="ml-1 rounded-full px-2 text-xs ring-1 ring-black/15">승인</span>
+                        : <span className="ml-1 rounded-full px-2 text-xs text-black/45 ring-1 ring-black/10">검수 전</span>}
                     </p>
                     {v.changelog && <p className="text-black/60">{v.changelog}</p>}
                     <p className="text-xs text-black/40">{v.uploader_name || v.uploader_email} · {fmtDate(v.created_at)}</p>

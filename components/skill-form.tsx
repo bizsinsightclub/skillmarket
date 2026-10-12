@@ -130,7 +130,10 @@ export default function SkillForm({
           <label className={label}>
             스킬 폴더 zip *
             <input name="zip" type="file" accept=".zip" required className={input} />
-            <span className={hint}>SKILL.md 가 들어 있는 폴더를 zip 으로 묶어 올리세요. 최대 20MB.</span>
+            <span className={hint}>
+              SKILL.md 가 들어 있는 폴더를 zip 으로 묶어 올리세요. 최대 20MB. 처음이면{" "}
+              <a href="/write/template" className="font-semibold underline">SKILL.md 양식(zip)</a> 을 받아 채우세요.
+            </span>
           </label>
           <label className={label}>
             버전
@@ -206,6 +209,7 @@ export default function SkillForm({
             <input name="author_email" type="email" defaultValue={values.author_email} required className={input} />
           </label>
         </div>
+        <span className={hint}>본인이 아닌 사람을 적으면 그 사람에게 확인 메일이 가고, 확인 전까지 &lsquo;확인 대기&rsquo;로 표시됩니다. 바꾼 기록은 남습니다.</span>
         {!isLink && (
           <label className={label}>
             {isLens ? "원본 렌즈 (다른 렌즈를 고쳐 만든 경우)" : isApp ? "원본 (다른 글을 고쳐 만든 경우)" : "원본 스킬 (다른 스킬을 고쳐 만든 경우)"}
@@ -257,7 +261,20 @@ export default function SkillForm({
             <span className={hint}>나와 에디터는 항상 볼 수 있습니다. 아직 가입하지 않은 사람도 지정할 수 있습니다.</span>
           </label>
         )}
+        {visibility === "public" && !isLink && (
+          <span className={hint}>전사 공개는 에디터 검수를 통과한 뒤 다른 사람에게 보입니다. 올리면 검수 요청이 자동으로 들어갑니다.</span>
+        )}
       </fieldset>
+
+      {mode === "create" && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="agree" required className="mt-1" />
+          <span>
+            사내 구성원이 업무에 쓰고 고칠 수 있게 공유합니다. {creditWho} 이름과 변경 이력은 기록으로 남습니다.
+            광고주·고객 정보, 개인정보, 비밀번호·API 키는 넣지 않았습니다.
+          </span>
+        </label>
+      )}
 
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <button disabled={busy} className="self-start rounded-xl bg-ink px-6 py-2.5 font-bold text-white disabled:opacity-50">

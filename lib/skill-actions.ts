@@ -13,6 +13,10 @@ import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
 import { MAX_APP_BYTES, parseHtmlApp } from "./html-app";
 import type { Kind } from "./queries";
 import { download, remove, removeSkillFiles, signedUploadUrl, upload } from "./storage";
+import { autoRequest, requeue, revoke } from "./curation";
+import { CreditError, confirmAuthor, recordAuthor, report } from "./credit";
+import { describe, scan, zipTexts } from "./sensitive";
+import { sendAuthorConfirm } from "./mail";
 
 export type FormState = { error?: string };
 
@@ -163,6 +167,27 @@ async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Met
   return { name, summary, body_md: text(form, "body_md", 50000), category, tags, author_name, author_email, based_on_skill_id, visibility, access: [...new Set(access)], post_type, ...link, ...lens };
 }
 
+// 민감정보 검사: 입력한 글 + 올린 파일의 텍스트. 걸리면 UploadError 로 막는다.
+function checkSensitive(viewer: Viewer, meta: Meta | null, files: Record<string, string>) {
+  if (viewer.editor) return; // 에디터는 잘못 걸린 글을 대신 올릴 수 있게 건너뛴다
+  const texts: Record<string, string> = { ...files };
+  if (meta) {
+    Object.assign(texts, {
+      이름: meta.name, 요약: meta.summary, 설명: meta.body_md, 태그: meta.tags, "만든 곳": meta.maker,
+      "설치 명령": meta.install_cmd, "공식 페이지": meta.homepage_url, "기반 인물": meta.person, "기반 방법론": meta.basis,
+    });
+  }
+  const found = scan(texts);
+  if (found.length) throw new UploadError(describe(found));
+}
+
+function versionTexts(parsed: ParsedSkill | null, lensText: string | null, html: string | null) {
+  if (parsed) return zipTexts(parsed.zip);
+  if (lensText !== null) return { "렌즈 파일": lensText };
+  if (html !== null) return { "HTML 파일": html };
+  return {};
+}
+
 function readVersion(form: FormData) {
   const version = text(form, "version", 20) || "1.0.0";
   if (!/^[0-9A-Za-z][0-9A-Za-z.+-]{0,19}$/.test(version)) throw new UploadError("버전은 영문·숫자·. + - 만 쓸 수 있습니다 (예: 1.0.0)");
@@ -254,7 +279,9 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   const db = getDb();
   const tmp = tmpPaths(form, user.id);
   let slug = "";
+  let mailAuthor: { email: string; name: string } | null = null;
   try {
+    if (form.get("agree") !== "on") throw new UploadError("등록 안내에 동의해 주세요");
     // 글 종류: 스킬(zip) / 플러그인·MCP(링크, 파일 없음) / 전문가 렌즈(.md)
     const type = await categoryType(db, text(form, "category", 20) || "etc");
     let parsed: ParsedSkill | null = null;
@@ -277,6 +304,10 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
     const version = type === "link" ? LINK_VERSION : readVersion(form);
     const images = await readImages(tmp.images, 0);
     const demo = await readDemo(tmp.demo);
+    checkSensitive(viewer, meta, {
+      ...versionTexts(parsed, lensFile?.text ?? null, htmlFile?.text ?? null),
+      ...(demo ? { "데모 HTML": new TextDecoder().decode(demo) } : {}),
+    });
 
     let skillId = 0;
     try {
@@ -285,8 +316,8 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
         skillId = (await one<{ id: number }>(
           t,
           `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, based_on_skill_id, visibility,
-                                   maker, install_cmd, homepage_url, person, basis, bands)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
+                                   maker, install_cmd, homepage_url, person, basis, bands, agreed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now()) RETURNING id`,
           [slug, meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, user.id, meta.based_on_skill_id, meta.visibility,
            meta.maker, meta.install_cmd, meta.homepage_url, meta.person, meta.basis, lensFile?.lens.operations.join(",") ?? ""],
         ))!.id;
@@ -296,6 +327,10 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
         ]);
         await saveSnapshots(t, skillId, images, demo);
         await saveAccess(t, skillId, meta.access);
+        if (await recordAuthor(t, { skillId, name: meta.author_name, email: meta.author_email, by: user, isLink: type === "link" })) {
+          mailAuthor = { email: meta.author_email, name: meta.name };
+        }
+        await autoRequest(t, skillId); // 전사 공개(링크형 제외)는 승인돼야 남에게 보인다 → 바로 검수 대기함으로
       });
     } catch (e) {
       if (skillId) await removeSkillFiles(skillId); // DB 는 롤백됐으니 스토리지도 정리
@@ -307,6 +342,8 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   } finally {
     await remove([tmp.zip, tmp.lens, tmp.html, ...tmp.images, tmp.demo].filter(Boolean) as string[]);
   }
+  const m = mailAuthor as { email: string; name: string } | null; // tx 콜백 안에서 채워져 TS 가 좁히지 못한다
+  if (m) await sendAuthorConfirm(m.email, { skillName: m.name, uploader: user.name || user.email, slug });
   revalidatePath("/");
   redirect(`/skills/${slug}`);
 }
@@ -315,8 +352,10 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
   const { db, user, viewer, skill } = await editable(slug);
   const tmp = tmpPaths(form, user.id);
   const removedFiles: string[] = [];
+  let mailAuthor = false;
+  let meta: Meta;
   try {
-    const meta = await readMeta(db, viewer, form, {}, skill.id);
+    meta = await readMeta(db, viewer, form, {}, skill.id);
     if (meta.post_type !== skill.post_type) throw new UploadError("스킬·플러그인·전문가 렌즈 사이로는 분류를 바꿀 수 없습니다");
     const removeIds = new Set(form.getAll("remove_snapshot").map(Number));
     const current = await db.query<{ id: number; kind: string; path: string }>("SELECT id, kind, path FROM app.snapshots WHERE skill_id = $1", [skill.id]);
@@ -324,19 +363,27 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
     for (const s of current) if (s.kind === "demo" && newDemo) removeIds.add(s.id);
     const keptImages = current.filter((s) => s.kind === "image" && !removeIds.has(s.id)).length;
     const images = await readImages(tmp.images, keptImages);
+    checkSensitive(viewer, meta, newDemo ? { "데모 HTML": new TextDecoder().decode(newDemo) } : {});
+    const m = meta;
 
     await db.tx(async (t) => {
       await t.query(
         `UPDATE app.skills SET name = $1, summary = $2, body_md = $3, category = $4, tags = $5, author_name = $6, author_email = $7,
            based_on_skill_id = $8, visibility = $9, maker = $10, install_cmd = $11, homepage_url = $12, person = $13, basis = $14,
            updated_at = now() WHERE id = $15`,
-        [meta.name, meta.summary, meta.body_md, meta.category, meta.tags, meta.author_name, meta.author_email, meta.based_on_skill_id, meta.visibility,
-         meta.maker, meta.install_cmd, meta.homepage_url, meta.person, meta.basis, skill.id],
+        [m.name, m.summary, m.body_md, m.category, m.tags, m.author_name, m.author_email, m.based_on_skill_id, m.visibility,
+         m.maker, m.install_cmd, m.homepage_url, m.person, m.basis, skill.id],
       );
-      // 링크형은 설치 명령·주소가 버전 파일 대신이다 → 에디터 아닌 사람이 바꾸면 에디터 픽을 내리고 다시 검수받게
-      if (skill.post_type === "link" && !viewer.editor && (meta.install_cmd !== skill.install_cmd || meta.homepage_url !== skill.homepage_url)) {
-        await t.query("UPDATE app.skills SET curated_version_id = NULL, curation_status = 'none' WHERE id = $1", [skill.id]);
+      // 링크형은 설치 명령·주소가 버전 파일 대신이다 → 에디터 아닌 사람이 바꾸면 승인·에디터 픽을 내리고 다시 검수받게
+      if (skill.post_type === "link" && !viewer.editor && (m.install_cmd !== skill.install_cmd || m.homepage_url !== skill.homepage_url)) {
+        await revoke(t, skill.id);
       }
+      mailAuthor = await recordAuthor(t, { skillId: skill.id, name: m.author_name, email: m.author_email, by: user, isLink: skill.post_type === "link" });
+      if (skill.visibility !== "public" && m.visibility === "public") await autoRequest(t, skill.id); // 지정 공개 → 전사 공개
+      // 승인 뒤 보이는 내용을 에디터가 아닌 사람이 바꾸면 다시 검수 대기(저장만 누른 경우는 그대로)
+      const changed = m.name !== skill.name || m.summary !== skill.summary || m.body_md !== skill.body_md || m.tags !== skill.tags
+        || m.person !== skill.person || m.basis !== skill.basis || images.length > 0 || removeIds.size > 0 || !!newDemo;
+      if (changed && !viewer.editor) await requeue(t, skill.id);
       for (const s of current) {
         if (!removeIds.has(s.id)) continue;
         await t.query("DELETE FROM app.snapshots WHERE id = $1", [s.id]);
@@ -352,12 +399,13 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
     await remove([...tmp.images, tmp.demo].filter(Boolean) as string[]);
   }
   await remove(removedFiles); // 커밋 후에만 파일 삭제
+  if (mailAuthor) await sendAuthorConfirm(meta.author_email, { skillName: meta.name, uploader: user.name || user.email, slug });
   revalidatePath(`/skills/${slug}`);
   redirect(`/skills/${slug}`);
 }
 
 export async function addVersion(slug: string, _prev: FormState, form: FormData): Promise<FormState> {
-  const { db, user, skill } = await editable(slug);
+  const { db, user, viewer, skill } = await editable(slug);
   if (skill.post_type === "link") notFound(); // 링크형 글엔 버전이 없다
   const tmp = tmpPaths(form, user.id);
   try {
@@ -372,6 +420,7 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
       parsed = parseSkillZip(await download(tmp.zip));
     }
     const version = readVersion(form);
+    checkSensitive(viewer, null, { ...versionTexts(parsed, lensFile?.text ?? null, htmlFile?.text ?? null), "변경 내용": text(form, "changelog", 2000) });
     if (await one(db, "SELECT 1 FROM app.skill_versions WHERE skill_id = $1 AND version = $2", [skill.id, version])) {
       throw new UploadError(`이미 있는 버전입니다: ${version}`);
     }
@@ -382,6 +431,7 @@ export async function addVersion(slug: string, _prev: FormState, form: FormData)
           skill.id, version, path, parsed?.skillMd ?? lensFile?.text ?? "", user.id, text(form, "changelog", 2000),
         ]);
         await t.query("UPDATE app.skills SET updated_at = now(), bands = COALESCE($2, bands) WHERE id = $1", [skill.id, lensFile ? lensFile.lens.operations.join(",") : null]);
+        await autoRequest(t, skill.id); // 새 버전은 승인 전까지 남에게 안 보인다(이전 승인 버전은 그대로)
       });
     } catch (e) {
       if (isUniqueViolation(e)) throw new UploadError(`이미 있는 버전입니다: ${version}`);
@@ -413,6 +463,47 @@ export async function toggleLike(slug: string) {
   const removed = await db.query("DELETE FROM app.likes WHERE user_id = $1 AND skill_id = $2 RETURNING 1", [viewer.id, skill.id]);
   if (!removed.length) await db.query("INSERT INTO app.likes (user_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [viewer.id, skill.id]);
   revalidatePath(`/skills/${slug}`);
+}
+
+// 써봤어요: 사용자당 1회 토글. 올린 사람·원작자 본인 것은 세지 않으므로 받지도 않는다.
+export async function toggleUse(slug: string) {
+  const { viewer } = await requireViewer();
+  const db = getDb();
+  const skill = await getSkill(db, viewer, { slug });
+  if (!skill) notFound();
+  if (skill.owner_id === viewer.id || skill.author_email === viewer.email) return;
+  const removed = await db.query("DELETE FROM app.uses WHERE user_id = $1 AND skill_id = $2 RETURNING 1", [viewer.id, skill.id]);
+  if (!removed.length) await db.query("INSERT INTO app.uses (user_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [viewer.id, skill.id]);
+  revalidatePath(`/skills/${slug}`);
+}
+
+// 원작자로 적힌 본인의 확인("맞아요" / "제가 아니에요")
+export async function answerAuthor(slug: string, yes: boolean) {
+  const { user, viewer } = await requireViewer();
+  const db = getDb();
+  const skill = await getSkill(db, viewer, { slug });
+  if (!skill) notFound();
+  try {
+    await confirmAuthor(db, { skillId: skill.id, user, yes: yes === true }); // 인자는 브라우저가 마음대로 보낼 수 있다
+  } catch (e) {
+    if (!(e instanceof CreditError)) throw e; // 이미 답했거나 본인이 아니면 그냥 새로고침
+  }
+  revalidatePath(`/skills/${slug}`);
+}
+
+export async function reportSkill(slug: string, _prev: FormState, form: FormData): Promise<FormState & { done?: boolean }> {
+  const { viewer } = await requireViewer();
+  const db = getDb();
+  const skill = await getSkill(db, viewer, { slug });
+  if (!skill) notFound();
+  try {
+    await report(db, { skillId: skill.id, reporterId: viewer.id, reason: String(form.get("reason") ?? "") });
+  } catch (e) {
+    if (e instanceof CreditError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath("/editor");
+  return { done: true };
 }
 
 export async function requestCuration(slug: string) {

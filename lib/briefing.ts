@@ -84,12 +84,15 @@ export async function ingestBriefing(db: Db, items: BriefingItem[], owner: { id:
       const body = `## 소개\n\n${it.summary}\n\n[GitHub 저장소](${it.url})\n\n---\n\n${from} 에서 자동으로 올린 글입니다. 에디터가 확인하고 설치 방법을 보탠 뒤 승인합니다.`;
       const s = (await one<{ id: number }>(
         t,
-        `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, visibility, maker, homepage_url, curation_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'public', $10, $11, 'pending') RETURNING id`,
+        `INSERT INTO app.skills (slug, name, summary, body_md, category, tags, author_name, author_email, owner_id, visibility, maker, homepage_url, curation_status, author_confirmed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'public', $10, $11, 'pending', true) RETURNING id`,
         [slug, it.name, it.summary.slice(0, 200), body, categoryOf(it.section), TAG, owner.name || owner.email, owner.email, owner.id, it.maker, it.url],
       ))!;
       await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, '', '', $3, $4)", [
         s.id, LINK_VERSION, owner.id, "브리핑 자동 등록",
+      ]);
+      await t.query("INSERT INTO app.author_history (skill_id, author_name, author_email, changed_by) VALUES ($1, $2, $3, $4)", [
+        s.id, owner.name || owner.email, owner.email, owner.id,
       ]);
       created.push(slug);
     }

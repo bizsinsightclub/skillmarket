@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
-import { listBoard, getSkill, authorStats, listNotices, unreadNotices, type Viewer, type Tab } from "./queries.ts";
+import {
+  listBoard, getSkill, authorStats, listNotices, unreadNotices, skillStats, myContribution, hallOfFame, pickVersion, listVersions, versionParam, type Viewer, type Tab,
+} from "./queries.ts";
 import type { Db } from "./db.ts";
 
 const SEED = `
@@ -12,6 +14,7 @@ const SEED = `
   INSERT INTO app.skill_access (skill_id, email) VALUES (2, 'friend@cheil.com');
   INSERT INTO app.skill_versions (id, skill_id, version, zip_path, skill_md, uploaded_by) OVERRIDING SYSTEM VALUE VALUES
     (1, 1, '1.0.0', 'x', 'x', 1), (2, 2, '1.0.0', 'x', 'x', 1);
+  UPDATE app.skills SET curated_version_id = 1, curation_status = 'approved' WHERE id = 1; -- 전사 공개 글은 승인돼야 남에게 보인다
 `;
 
 const owner: Viewer = { id: 1, email: "owner@samsung.com", editor: false };
@@ -29,11 +32,78 @@ test("비공개 스킬: 소유자·허용 이메일·에디터만 목록에서 �
   assert.equal((await listBoard(db, other)).total, 1);
 });
 
-test("에디터 픽 탭: 승인된 공개 글만, 비공개는 승인돼도 제외", async () => {
+test("에디터 픽 탭: 승인 후 에디터가 고른 공개 글만, 비공개는 골라도 제외", async () => {
   const db = await testDb(SEED);
-  assert.deepEqual(await slugs(db, owner, "pick"), []);
-  await db.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = id");
+  assert.deepEqual(await slugs(db, owner, "pick"), []); // 승인만으로는 에디터 픽이 아니다
+  await db.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = id, picked_at = now()");
   assert.deepEqual(await slugs(db, owner, "pick"), ["pub"]);
+  await db.query("UPDATE app.skills SET curated_version_id = NULL WHERE id = 1"); // 승인 취소되면 픽도 무효
+  assert.deepEqual(await slugs(db, owner, "pick"), []);
+});
+
+test("검수 필수: 승인 전 전사 공개 글은 올린 사람·원작자·에디터만, 링크형·지정 공개는 검수 없이", async () => {
+  const db = await testDb(SEED);
+  await db.query(`INSERT INTO app.skills (id, slug, name, author_name, author_email, owner_id, category, maker, install_cmd) OVERRIDING SYSTEM VALUE VALUES
+    (3, 'new', '새 스킬', 'F', 'friend@cheil.com', 1, 'etc', '', ''),
+    (4, 'plug', '플러그인', 'A', 'owner@samsung.com', 1, 'plugin', 'X', '/plugin install x')`);
+  assert.deepEqual(await slugs(db, other), ["plug", "pub"]);
+  assert.deepEqual(await slugs(db, owner), ["new", "plug", "pub", "sec"]);
+  assert.deepEqual(await slugs(db, friend), ["new", "plug", "pub", "sec"]); // 원작자로 적힌 사람 + 지정 공개 대상
+  assert.deepEqual(await slugs(db, { ...other, editor: true }), ["new", "plug", "pub", "sec"]);
+  assert.equal(await getSkill(db, other, { slug: "new" }), undefined);
+});
+
+test("설치 수 = 받아 간 사람 수: 같은 사람 여러 번은 한 번, 올린 사람·원작자 본인은 제외", async () => {
+  const db = await testDb(SEED);
+  await db.query("UPDATE app.skills SET author_email = 'friend@cheil.com' WHERE id = 1"); // 올린 사람 1, 원작자 2
+  await db.query(`INSERT INTO app.installs (skill_id, version_id, user_id) VALUES (1, 1, 1), (1, 1, 2), (1, 1, 3), (1, 1, 3), (1, 1, 3)`);
+  await db.query("INSERT INTO app.uses (user_id, skill_id) VALUES (1, 1), (3, 1)");
+  const row = (await listBoard(db, other)).rows.find((r) => r.slug === "pub")!;
+  assert.equal(row.installs, 1);
+  assert.equal(row.trend, 1);
+  const stats = await skillStats(db, 1, 3);
+  assert.deepEqual([stats.installs, stats.uses, stats.used], [1, 1, true]);
+  assert.deepEqual(await myContribution(db, "friend@cheil.com"), { skills: 1, waiting: 0, installs: 1, month: 1, uses: 1 });
+  assert.deepEqual((await hallOfFame(db)).map((h) => [h.author_email, h.installs, h.uses]), [["friend@cheil.com", 1, 1]]);
+});
+
+test("받을 버전: 남은 승인된 버전만(?v 로 승인 전 버전 요청해도 안 됨), 올린 사람은 최신도", async () => {
+  const db = await testDb(SEED);
+  await db.query("INSERT INTO app.skill_versions (id, skill_id, version, zip_path, skill_md, uploaded_by) OVERRIDING SYSTEM VALUE VALUES (3, 1, '2.0.0', 'y', 'y', 1)");
+  const skill = (await getSkill(db, other, { slug: "pub" }))!;
+  assert.equal((await pickVersion(db, other, skill, null))?.id, 1);
+  assert.equal(await pickVersion(db, other, skill, 3), undefined);
+  assert.equal((await pickVersion(db, owner, skill, 3))?.id, 3);
+  assert.equal((await pickVersion(db, owner, skill, null))?.id, 1); // 기본은 승인 버전
+  assert.deepEqual((await listVersions(db, 1)).map((v) => [v.id, v.approved]), [[3, false], [1, true]]);
+  await db.query("INSERT INTO app.curation_reviews (skill_id, version_id, editor_id, decision) VALUES (1, 1, 3, 'approved'), (1, 3, 3, 'approved')");
+  await db.query("UPDATE app.skills SET curated_version_id = 3 WHERE id = 1");
+  assert.equal((await pickVersion(db, other, skill, null))?.id, 3);
+  assert.equal((await pickVersion(db, other, skill, 1))?.id, 1); // 예전에 검수 승인된 버전은 계속 받을 수 있다
+  assert.equal(await pickVersion(db, other, skill, NaN), undefined); // ?v=1.5 같은 값
+  // 승인 취소 → 다시 승인: 취소 전에 승인됐던 옛 버전은 더 못 받는다
+  await db.query("UPDATE app.skills SET curated_version_id = NULL, revoked_at = now() + interval '1 second' WHERE id = 1");
+  await db.query("INSERT INTO app.curation_reviews (skill_id, version_id, editor_id, decision, created_at) VALUES (1, 3, 3, 'approved', now() + interval '2 seconds')");
+  await db.query("UPDATE app.skills SET curated_version_id = 3 WHERE id = 1");
+  assert.equal(await pickVersion(db, other, skill, 1), undefined);
+  assert.equal((await pickVersion(db, other, skill, 3))?.id, 3);
+});
+
+test("?v= 값 읽기: 없으면 null, 정수가 아니거나 범위 밖이면 NaN", () => {
+  assert.equal(versionParam("http://x/a"), null);
+  assert.equal(versionParam("http://x/a?v=12"), 12);
+  assert.ok(Number.isNaN(versionParam("http://x/a?v=1.5")!));
+  assert.ok(Number.isNaN(versionParam("http://x/a?v=99999999999")!));
+});
+
+test("알림함: 받아 감(사람당 한 번)·써봤어요·에디터 픽은 올린 사람과 원작자 모두에게, 원작자 확인 요청은 원작자에게", async () => {
+  const db = await testDb(SEED);
+  await db.query("UPDATE app.skills SET author_email = 'friend@cheil.com', author_confirmed = NULL, picked_at = now() WHERE id = 1");
+  await db.query("INSERT INTO app.installs (skill_id, version_id, user_id) VALUES (1, 1, 3), (1, 1, 3), (1, 1, 1)");
+  await db.query("INSERT INTO app.uses (user_id, skill_id) VALUES (3, 1)");
+  assert.deepEqual((await listNotices(db, 1)).map((x) => x.kind).sort(), ["install", "pick", "use"]);
+  assert.deepEqual((await listNotices(db, 2)).map((x) => x.kind).sort(), ["author", "install", "pick", "use"]);
+  assert.deepEqual((await listNotices(db, 3)).map((x) => x.kind), []);
 });
 
 test("스킬과 링크형(플러그인·MCP)은 따로 나온다", async () => {

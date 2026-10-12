@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
-import { listPending } from "@/lib/queries";
+import { listPending, listReports } from "@/lib/queries";
+import ResolveForm from "@/components/resolve-form";
 
 export default async function EditorPage() {
   const { viewer } = await requireViewer();
   if (!viewer.editor) notFound();
-  const pending = await listPending(getDb());
+  const db = getDb();
+  const [pending, reports] = await Promise.all([listPending(db), listReports(db)]);
   return (
     <div>
       <h1 className="mb-6 text-3xl font-extrabold tracking-[-0.03em]">검수 대기함</h1>
@@ -38,7 +40,29 @@ export default async function EditorPage() {
           ))}
         </tbody>
       </table>
-      <p className="mt-4 text-sm text-black/60">스킬을 열어 큐레이션 영역에서 승인·반려합니다.</p>
+      <p className="mt-4 text-sm text-black/60">
+        글을 열어 검수 영역에서 승인·반려합니다. 전사 공개 글(링크형 제외)은 승인돼야 다른 사람에게 보입니다.
+        보안(스크립트가 하는 일)과 민감정보(광고주·고객 정보, 개인정보)를 확인하세요.
+      </p>
+
+      <h2 className="mb-4 mt-12 text-2xl font-extrabold tracking-[-0.02em]">출처 신고 {reports.length > 0 && <span className="text-black/40">{reports.length}</span>}</h2>
+      {reports.length === 0 ? (
+        <p className="panel rounded-2xl py-10 text-center text-sm text-black/40">열린 신고가 없습니다</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {reports.map((r) => (
+            <li key={r.id} className="panel rounded-2xl p-5 text-sm">
+              <p>
+                <Link href={`/skills/${r.slug}`} className="font-semibold underline">{r.name}</Link>
+                <span className="text-black/50"> · {r.reporter} · {fmtDate(r.created_at, true)}</span>
+              </p>
+              <p className="my-3 whitespace-pre-wrap text-black/75">{r.reason}</p>
+              <ResolveForm reportId={r.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-4 text-sm text-black/60">원작자를 고치려면 글의 수정 화면에서 바꾸세요. 바꾼 기록은 원작자 변경 이력에 남습니다.</p>
     </div>
   );
 }

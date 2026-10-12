@@ -22,7 +22,7 @@ export default async function AuthorPage({ params, searchParams }: PageProps<"/u
           <h1 className="text-3xl font-extrabold tracking-[-0.03em]">{stats.name}</h1>
           <p className="text-sm text-black/50">{email}</p>
         </div>
-        {[["스킬", stats.skills], ["받은 좋아요", stats.likes], ["설치", stats.installs]].map(([label, n]) => (
+        {[["스킬", stats.skills], ["받은 좋아요", stats.likes], ["받아 간 사람", stats.installs], ["써봤어요", stats.uses]].map(([label, n]) => (
           <div key={label} className="text-center">
             <div className="text-3xl font-extrabold tabular-nums tracking-tight">{n}</div>
             <div className="text-xs text-black/50">{label}</div>

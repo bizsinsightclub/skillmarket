@@ -42,6 +42,8 @@ export default function SkillCard({ s }: { s: BoardRow }) {
         <div className="absolute left-3 top-3 flex gap-1.5">
           {s.picked ? <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-ink shadow-sm">✦ 에디터 픽</span> : null}
           {s.visibility === "restricted" && <span className="glass-dark rounded-full px-2.5 py-0.5 text-xs font-medium">비공개</span>}
+          {/* 승인 전 전사 공개 글은 올린 사람·원작자·에디터 목록에만 나온다 */}
+          {!s.approved && s.visibility === "public" && s.post_type !== "link" && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 shadow-sm">검수 대기</span>}
         </div>
         {/* 원칙 6: 이미지 위 수치는 어두운 유리 칩 */}
         <div className="glass-dark absolute bottom-3 right-3 flex gap-2.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums">

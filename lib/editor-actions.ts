@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb } from "./db";
 import { requireViewer } from "./auth";
-import { CurationError, review, unpick } from "./curation";
+import { CurationError, pick, review, revoke, unpick } from "./curation";
+import { CreditError, resolveReport } from "./credit";
 
 async function requireEditor() {
   const { user, viewer } = await requireViewer();
@@ -36,9 +37,34 @@ export async function reviewAction(_prev: { error?: string }, form: FormData): P
   return {};
 }
 
-export async function unpickAction(form: FormData) {
+// 에디터 픽 고르기·내리기, 승인 취소
+export async function pickAction(form: FormData) {
   await requireEditor();
   const { skillId, slug } = ids(form);
-  await unpick(getDb(), skillId);
+  const on = form.get("on") === "1";
+  try {
+    await (on ? pick(getDb(), skillId) : unpick(getDb(), skillId));
+  } catch (e) {
+    if (!(e instanceof CurationError)) throw e; // 승인 전 글: 버튼이 안 보이는 경우라 조용히 무시
+  }
   done(slug);
+}
+
+export async function revokeAction(form: FormData) {
+  await requireEditor();
+  const { skillId, slug } = ids(form);
+  await revoke(getDb(), skillId);
+  done(slug);
+}
+
+export async function resolveReportAction(_prev: { error?: string }, form: FormData): Promise<{ error?: string }> {
+  const user = await requireEditor();
+  try {
+    await resolveReport(getDb(), { reportId: Number(form.get("report_id")), editorId: user.id, note: String(form.get("note") ?? "") });
+  } catch (e) {
+    if (e instanceof CreditError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath("/editor");
+  return {};
 }
