@@ -20,6 +20,8 @@ body {
   color: var(--color-ink);
   letter-spacing: -0.01em;
   font-feature-settings: "ss06"; /* Pretendard: 숫자·영문 가독성 */
+  word-break: keep-all; /* 한글은 어절 단위로 줄바꿈 */
+  overflow-wrap: break-word; /* 긴 주소·영문은 넘치지 않게 */
 }
 
 /* 원칙 2: 유리 밑에 깔리는 고정 메쉬 그라디언트. 은은하게(불투명도 0.2 안팎) — 색이 눈에 띄면 안 된다 */

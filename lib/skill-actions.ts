@@ -118,12 +118,16 @@ async function readHtml(path: string | undefined) {
 async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Meta>, selfId?: number): Promise<Meta> {
   const name = text(form, "name", 80) || defaults.name || "";
   if (!name) throw new UploadError("이름을 입력하세요");
-  const summary = text(form, "summary", 200) || defaults.summary?.slice(0, 200) || "";
+  const fromMd = defaults.summary ?? "";
+  const summary = text(form, "summary", 200) || (fromMd.length > 200 ? fromMd.slice(0, 199) + "…" : fromMd); // 잘랐으면 … 로 표시
 
   const category = text(form, "category", 20) || "etc";
   const post_type = await categoryType(db, category);
-  const link = post_type === "link"
-    ? readLinkFields({ maker: text(form, "maker", 80), install_cmd: text(form, "install_cmd", 2000), homepage_url: text(form, "homepage_url", 500) })
+  // 스킬·HTML 앱도 웹에 공개된 것을 가져왔으면 만든 곳 + 출처 주소(링크형처럼 'by 만든 곳 · 추천 ○○', 기여 집계 제외)
+  const external = (post_type === "skill" || post_type === "app") && form.get("origin") === "external";
+  if (external && !text(form, "homepage_url", 500)) throw new UploadError("출처 주소를 입력하세요");
+  const link = post_type === "link" || external
+    ? readLinkFields({ maker: text(form, "maker", 80), install_cmd: external ? "" : text(form, "install_cmd", 2000), homepage_url: text(form, "homepage_url", 500) })
     : { maker: "", install_cmd: "", homepage_url: "" };
   // 렌즈: 방법론의 출처 인물·방법론 이름은 '출처 표기'다(인물 연기가 아님 — The Lens 원칙)
   const lens = { person: "", basis: "" };
@@ -133,7 +137,7 @@ async function readMeta(db: Db, v: Viewer, form: FormData, defaults: Partial<Met
     if (!lens.person || !lens.basis) throw new UploadError("기반 인물과 기반 방법론을 입력하세요");
   }
 
-  const tags = [...new Set(text(form, "tags", 300).split(",").map((t) => t.trim()).filter(Boolean))].slice(0, 10).join(",");
+  const tags = [...new Set(text(form, "tags", 300).split(",").map((t) => t.trim().replace(/^#+/, "").trim()).filter(Boolean))].slice(0, 10).join(",");
 
   const author_name = text(form, "author_name", 50) || defaults.author_name || "";
   const author_email = normalizeEmail(text(form, "author_email", 200) || defaults.author_email || "");
@@ -327,7 +331,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
         ]);
         await saveSnapshots(t, skillId, images, demo);
         await saveAccess(t, skillId, meta.access);
-        if (await recordAuthor(t, { skillId, name: meta.author_name, email: meta.author_email, by: user, isLink: type === "link" })) {
+        if (await recordAuthor(t, { skillId, name: meta.author_name, email: meta.author_email, by: user, isLink: type === "link" || !!meta.maker })) {
           mailAuthor = { email: meta.author_email, name: meta.name };
         }
         await autoRequest(t, skillId); // 전사 공개(링크형 제외)는 승인돼야 남에게 보인다 → 바로 검수 대기함으로
@@ -378,11 +382,11 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
       if (skill.post_type === "link" && !viewer.editor && (m.install_cmd !== skill.install_cmd || m.homepage_url !== skill.homepage_url)) {
         await revoke(t, skill.id);
       }
-      mailAuthor = await recordAuthor(t, { skillId: skill.id, name: m.author_name, email: m.author_email, by: user, isLink: skill.post_type === "link" });
+      mailAuthor = await recordAuthor(t, { skillId: skill.id, name: m.author_name, email: m.author_email, by: user, isLink: skill.post_type === "link" || !!m.maker });
       if (skill.visibility !== "public" && m.visibility === "public") await autoRequest(t, skill.id); // 지정 공개 → 전사 공개
       // 승인 뒤 보이는 내용을 에디터가 아닌 사람이 바꾸면 다시 검수 대기(저장만 누른 경우는 그대로)
       const changed = m.name !== skill.name || m.summary !== skill.summary || m.body_md !== skill.body_md || m.tags !== skill.tags
-        || m.person !== skill.person || m.basis !== skill.basis || images.length > 0 || removeIds.size > 0 || !!newDemo;
+        || m.person !== skill.person || m.basis !== skill.basis || m.maker !== skill.maker || m.homepage_url !== skill.homepage_url || images.length > 0 || removeIds.size > 0 || !!newDemo;
       if (changed && !viewer.editor) await requeue(t, skill.id);
       for (const s of current) {
         if (!removeIds.has(s.id)) continue;

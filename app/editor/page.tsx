@@ -17,10 +17,10 @@ export default async function EditorPage() {
       <table className="panel w-full overflow-hidden rounded-2xl text-sm">
         <thead className="border-b border-black/20 bg-black/[.03] text-black/60">
           <tr>
-            <th className="py-2 text-left font-normal">스킬</th>
-            <th className="font-normal">원작자</th>
-            <th className="font-normal">구분</th>
-            <th className="font-normal">요청일</th>
+            <th className="py-2 pl-4 pr-2 text-left font-normal">스킬</th>
+            <th className="whitespace-nowrap px-2 font-normal">크레딧</th>
+            <th className="whitespace-nowrap pl-2 pr-4 font-normal sm:pr-2">구분</th>
+            <th className="hidden whitespace-nowrap pl-2 pr-4 font-normal sm:table-cell">요청일</th>
           </tr>
         </thead>
         <tbody>
@@ -29,13 +29,13 @@ export default async function EditorPage() {
           )}
           {pending.map((p) => (
             <tr key={p.id} className="border-b border-black/10">
-              <td className="py-2.5">
+              <td className="py-2.5 pl-4 pr-2">
                 <Link href={`/skills/${p.slug}`} className="font-medium hover:underline">{p.name}</Link>
                 {p.visibility === "restricted" && <span className="ml-2 rounded bg-black/10 px-1.5 text-xs">비공개</span>}
               </td>
-              <td className="text-center">{p.author_name}</td>
-              <td className="text-center">{p.curated_version_id ? "재검수" : "신규"}</td>
-              <td className="text-center text-black/50">{fmtDate(p.updated_at, true)}</td>
+              <td className="whitespace-nowrap px-2 text-center">{p.author_name}</td>
+              <td className="whitespace-nowrap pl-2 pr-4 text-center sm:pr-2">{p.curated_version_id ? "재검수" : "신규"}</td>
+              <td className="hidden whitespace-nowrap pl-2 pr-4 text-center text-black/50 sm:table-cell">{fmtDate(p.updated_at, true)}</td>
             </tr>
           ))}
         </tbody>

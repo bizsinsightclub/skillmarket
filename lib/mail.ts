@@ -37,7 +37,7 @@ export async function sendAuthorConfirm(to: string, p: { skillName: string; uplo
     await sendMail(
       to,
       `[스킬마켓] ${p.uploader} 님이 회원님을 '${p.skillName}' 의 원작자로 적었습니다`,
-      `${p.uploader} 님이 스킬마켓에 '${p.skillName}' 을(를) 올리면서 원작자로 회원님을 적었습니다.\n\n` +
+      `${p.uploader} 님이 스킬마켓에 '${p.skillName}' 글을 올리면서 원작자로 회원님을 적었습니다.\n\n` +
         `맞으면 '맞아요', 회원님이 만든 것이 아니면 '제가 아니에요'를 눌러 주세요. 아니라고 하시면 에디터가 확인합니다.\n\n` +
         `${siteUrl()}/skills/${encodeURIComponent(p.slug)}\n\n(사내 메일로 로그인하면 바로 답할 수 있습니다.)`,
     );

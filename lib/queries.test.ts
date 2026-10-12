@@ -63,7 +63,7 @@ test("설치 수 = 받아 간 사람 수: 같은 사람 여러 번은 한 번, �
   assert.equal(row.trend, 1);
   const stats = await skillStats(db, 1, 3);
   assert.deepEqual([stats.installs, stats.uses, stats.used], [1, 1, true]);
-  assert.deepEqual(await myContribution(db, "friend@cheil.com"), { skills: 1, waiting: 0, installs: 1, month: 1, uses: 1 });
+  assert.deepEqual(await myContribution(db, "friend@cheil.com"), { skills: 1, waiting: 0, recs: 0, likes: 0, installs: 1, month: 1, uses: 1 });
   assert.deepEqual((await hallOfFame(db)).map((h) => [h.author_email, h.installs, h.uses]), [["friend@cheil.com", 1, 1]]);
 });
 
@@ -127,8 +127,26 @@ test("단건 조회·원작자 합계도 같은 가시성 규칙", async () => {
   assert.equal(await getSkill(db, other, { slug: "sec" }), undefined);
   assert.equal(await getSkill(db, other, { id: 2 }), undefined);
   assert.equal((await getSkill(db, friend, { slug: "sec" }))?.id, 2);
-  assert.equal((await authorStats(db, other, "owner@samsung.com")).skills, 1);
-  assert.equal((await authorStats(db, friend, "owner@samsung.com")).skills, 2);
+  assert.equal((await authorStats(db, other, "owner@samsung.com")).made, 1);
+  assert.equal((await authorStats(db, friend, "owner@samsung.com")).made, 2);
+});
+
+test("추천한 글(외부 플러그인·오픈소스, 웹에서 가져온 스킬)은 만든 글로 세지 않는다", async () => {
+  const db = await testDb(SEED);
+  await db.query(`INSERT INTO app.skills (id, slug, name, author_name, author_email, owner_id, category, maker, install_cmd, curation_status) OVERRIDING SYSTEM VALUE
+                  VALUES (3, 'plug', '플러그인', 'A', 'owner@samsung.com', 1, 'plugin', 'Anthropic', '/plugin install x', 'pending')`);
+  // 웹에서 가져온 공개 스킬(zip): 만든 곳이 있으면 추천한 글
+  await db.query(`INSERT INTO app.skills (id, slug, name, author_name, author_email, owner_id, maker, homepage_url) OVERRIDING SYSTEM VALUE
+                  VALUES (4, 'ext', '가져온 스킬', 'A', 'owner@samsung.com', 1, 'Anthropic', 'https://github.com/anthropics/skills')`);
+  await db.query("INSERT INTO app.skill_versions (id, skill_id, version, zip_path, skill_md, uploaded_by) OVERRIDING SYSTEM VALUE VALUES (4, 4, '1.0.0', 'x', 'x', 1)");
+  await db.query("UPDATE app.skills SET curated_version_id = 4 WHERE id = 4");
+  await db.query("INSERT INTO app.likes (user_id, skill_id) VALUES (3, 3), (3, 4)");
+  const s = await authorStats(db, other, "owner@samsung.com");
+  assert.deepEqual([s.made, s.recs, s.likes], [1, 2, 0]);
+  assert.deepEqual((await listBoard(db, other, { author: "owner@samsung.com", made: true })).rows.map((r) => r.slug), ["pub"]);
+  assert.deepEqual((await listBoard(db, other, { author: "owner@samsung.com", made: false })).rows.map((r) => r.slug).sort(), ["ext", "plug"]);
+  const mine = await myContribution(db, "owner@samsung.com");
+  assert.deepEqual([mine.skills, mine.recs, mine.waiting, mine.likes], [1, 2, 0, 0]); // 링크형 검수 대기는 내 기여의 '검수 대기'가 아니다
 });
 
 test("알림함: 내 글에 대한 남의 검수·좋아요만, 안 읽은 수는 마지막으로 연 뒤부터", async () => {

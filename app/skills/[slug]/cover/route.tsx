@@ -28,8 +28,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/skills/[slug]/cover
   const [bold, medium] = await fonts;
   const t = TONE[s.post_type];
 
-  const eyebrow = s.post_type === "link" ? `${s.category_label} · by ${s.maker}` : s.post_type === "lens" ? `The Lens 전문가 · ${s.person} 기반` : s.post_type === "app" ? `HTML 앱 · ${s.category_label}` : `Claude 스킬 · ${s.category_label}`;
-  const chips = (s.post_type === "lens" ? s.bands.split(",").map((b) => b.replace(/\s*\(.*$/, "")) : s.tags.split(","))
+  const eyebrow = s.post_type === "link" ? `${s.category_label} · by ${s.maker}` : s.post_type === "lens" ? `The Lens 전문가 · ${s.person} 기반` : s.post_type === "app" ? `HTML 앱 · ${s.category_label}${s.maker ? ` · by ${s.maker}` : ""}` : `Claude 스킬 · ${s.category_label}${s.maker ? ` · by ${s.maker}` : ""}`;
+  const chips = (s.post_type === "lens" ? s.bands.split(",").map((b) => b.replace(/\s*\(.*$/, "")) : s.tags.split(",").map((t) => t.replace(/^#+/, "")))
     .map((c) => c.trim())
     .filter(Boolean)
     .slice(0, 4);

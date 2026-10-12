@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { BoardRow } from "@/lib/queries";
 
-// 카드·조명에 쓰는 한 줄 크레딧. 플러그인은 만든 곳+추천인, 렌즈는 '○○ 기반'(방법론 출처 표기)
+// 카드·조명에 쓰는 한 줄 크레딧. 외부에서 만든 것(플러그인·가져온 스킬)은 만든 곳+추천인, 렌즈는 '○○ 기반'(방법론 출처 표기)
 export function byline(s: Pick<BoardRow, "post_type" | "maker" | "author_name" | "basis">) {
-  if (s.post_type === "link") return `by ${s.maker} · 추천 ${s.author_name}`;
+  if (s.maker) return `by ${s.maker} · 추천 ${s.author_name}`;
   if (s.post_type === "lens") return `${s.basis} 기반`;
   return `by ${s.author_name}`;
 }

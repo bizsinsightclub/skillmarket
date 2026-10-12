@@ -74,14 +74,14 @@ export default function PickSpotlight({ picks }: { picks: Pick[] }) {
 
       {n > 1 && (
         <div className="mt-5 flex items-center justify-between gap-4 px-1">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex min-w-0 flex-wrap gap-1 sm:gap-1.5">
             {picks.map((x, k) => (
               <button
                 key={x.slug}
                 onClick={() => setI(k)}
                 aria-label={`${k + 1}번째: ${x.name}`}
                 aria-current={k === i}
-                className={`h-1.5 rounded-full transition-all ${k === i ? "w-7 bg-accent" : "w-3 bg-white/25 hover:bg-white/45"}`}
+                className={`h-1.5 rounded-full transition-all ${k === i ? "w-5 bg-accent sm:w-7" : "w-2 bg-white/25 hover:bg-white/45 sm:w-3"}`}
               />
             ))}
           </div>

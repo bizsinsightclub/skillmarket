@@ -4,6 +4,8 @@ import { one, Params, type Db } from "./db.ts";
 export type Viewer = { id: number; email: string; editor: boolean };
 
 const IS_LINK = "EXISTS (SELECT 1 FROM app.categories lc WHERE lc.slug = s.category AND lc.post_type = 'link')";
+// 직접 만든 글 = 링크형이 아니고 만든 곳(외부)이 비어 있음. 아니면 '추천한 글'(외부 플러그인·오픈소스, 웹에서 가져온 공개 스킬 등)
+const MADE = `(NOT ${IS_LINK} AND s.maker = '')`;
 
 // viewer 가 볼 수 있는 스킬만 남기는 WHERE 조각. 별칭 s = app.skills.
 // 전사 공개는 검수 승인된 것만(링크형은 검수 없이). 올린 사람·원작자·에디터는 승인 전에도, 지정 공개는 허용된 이메일에게.
@@ -54,7 +56,7 @@ export const PAGE_SIZE = 20;
 export async function listBoard(
   db: Db,
   v: Viewer,
-  opts: { tab?: Tab; kind?: Kind; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
+  opts: { tab?: Tab; kind?: Kind; made?: boolean; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
 ): Promise<{ rows: BoardRow[]; total: number }> {
   const p = new Params();
   const where = [visible(v, p)];
@@ -62,6 +64,7 @@ export async function listBoard(
   // 에디터 픽 탭은 비공개 스킬 제외
   if (opts.tab === "pick") where.push("s.picked_at IS NOT NULL AND s.curated_version_id IS NOT NULL AND s.visibility = 'public'");
   if (opts.kind) where.push(`c.post_type = ${p.add(opts.kind)}`);
+  if (opts.made !== undefined) where.push(`${opts.made ? "" : "NOT "}${MADE}`); // true = 직접 만든 글, false = 추천한 글
   if (opts.category) where.push(`s.category = ${p.add(opts.category)}`);
   if (opts.author) where.push(`s.author_email = ${p.add(opts.author)}`);
   if (opts.q?.trim()) {
@@ -230,15 +233,15 @@ export function lastReview(db: Db, skillId: number) {
   );
 }
 
-// 원작자 페이지 합계 (viewer 가 볼 수 있는 스킬만)
+// 원작자 페이지 합계 (viewer 가 볼 수 있는 스킬만). 외부에서 만든 것(링크형·가져온 스킬)은 추천 → 따로 세고 합계에서 뺀다.
 export async function authorStats(db: Db, v: Viewer, email: string) {
   const p = new Params();
-  return (await one<{ skills: number; name: string | null; likes: number; installs: number; uses: number }>(
+  return (await one<{ made: number; recs: number; name: string | null; likes: number; installs: number; uses: number }>(
     db,
-    `SELECT COUNT(*)::int AS skills, MAX(s.author_name) AS name,
-            COALESCE(SUM((SELECT COUNT(*) FROM app.likes l WHERE l.skill_id = s.id)), 0)::int AS likes,
-            COALESCE(SUM(${installers()}), 0)::int AS installs,
-            COALESCE(SUM(${triers()}), 0)::int AS uses
+    `SELECT COUNT(*) FILTER (WHERE ${MADE})::int AS made, COUNT(*) FILTER (WHERE NOT ${MADE})::int AS recs, MAX(s.author_name) AS name,
+            COALESCE(SUM((SELECT COUNT(*) FROM app.likes l WHERE l.skill_id = s.id)) FILTER (WHERE ${MADE}), 0)::int AS likes,
+            COALESCE(SUM(${installers()}) FILTER (WHERE ${MADE}), 0)::int AS installs,
+            COALESCE(SUM(${triers()}) FILTER (WHERE ${MADE}), 0)::int AS uses
      FROM app.skills s WHERE s.author_email = ${p.add(email)} AND ${visible(v, p)}`,
     p.values,
   ))!;
@@ -269,16 +272,18 @@ export function authorHistory(db: Db, skillId: number) {
   );
 }
 
-// 기여 집계는 전사 공개·승인된 글만(모두에게 같은 숫자가 보이게). 링크형은 만든 것이 아니라 추천이라 뺀다.
+// 기여 집계는 전사 공개·승인된 글만(모두에게 같은 숫자가 보이게). 외부에서 만든 것(링크형·가져온 스킬)은 추천이라 뺀다.
 // 원작자가 본인이 아니라고 한 글(author_confirmed = false)도 뺀다.
-const CREDITED = `s.visibility = 'public' AND s.curated_version_id IS NOT NULL AND NOT ${IS_LINK} AND s.author_confirmed IS NOT FALSE`;
+const CREDITED = `s.visibility = 'public' AND s.curated_version_id IS NOT NULL AND ${MADE} AND s.author_confirmed IS NOT FALSE`;
 
-// 홈 '내 기여 현황': 내가 원작자인 글, 받아 간 사람(사람당 글마다 1회), 이번 달 새로 받아 간 사람, 써봤어요
+// 내 정보 '내 기여': 내가 원작자인 글, 받아 간 사람(사람당 글마다 1회), 이번 달 새로 받아 간 사람, 써봤어요, 좋아요. 추천한 링크형은 따로.
 export async function myContribution(db: Db, email: string) {
-  return (await one<{ skills: number; waiting: number; installs: number; month: number; uses: number }>(
+  return (await one<{ skills: number; waiting: number; installs: number; month: number; uses: number; likes: number; recs: number }>(
     db,
     `SELECT COUNT(*) FILTER (WHERE ${CREDITED})::int AS skills,
-            COUNT(*) FILTER (WHERE s.curation_status = 'pending')::int AS waiting,
+            COUNT(*) FILTER (WHERE s.curation_status = 'pending' AND NOT ${IS_LINK})::int AS waiting,
+            COUNT(*) FILTER (WHERE NOT ${MADE})::int AS recs,
+            COALESCE(SUM((SELECT COUNT(*) FROM app.likes l WHERE l.skill_id = s.id)) FILTER (WHERE ${CREDITED}), 0)::int AS likes,
             COALESCE(SUM(${installers()}) FILTER (WHERE ${CREDITED}), 0)::int AS installs,
             COALESCE(SUM(${installers("AND i.created_at >= date_trunc('month', now() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'")}) FILTER (WHERE ${CREDITED}), 0)::int AS month,
             COALESCE(SUM(${triers()}) FILTER (WHERE ${CREDITED}), 0)::int AS uses

@@ -73,12 +73,13 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   // ZIP 안이 <스킬 이름>/ 폴더 하나라 skills 폴더에 그대로 풀면 된다(Claude 앱에 올리는 파일과 같다)
   const unixCmd = `unzip -o ${zipName} -d ~/.claude/skills/`;
   const winCmd = `Expand-Archive ${zipName} -DestinationPath $HOME\\.claude\\skills -Force`;
-  const tags = skill.tags ? skill.tags.split(",") : [];
+  const tags = skill.tags ? skill.tags.split(",").map((t) => t.replace(/^#+/, "")) : []; // 예전에 #을 붙여 저장한 태그도 # 하나로
   const images = snapshots.filter((s) => s.kind === "image");
   const demo = snapshots.find((s) => s.kind === "demo");
   const ids = { skill_id: skill.id, slug: skill.slug };
   // 링크형 글(플러그인·MCP): zip·버전 대신 설치 명령·공식 페이지. 버전 표기는 숨긴다
   const isLink = skill.post_type === "link";
+  const isRec = !!skill.maker; // 외부에서 만든 것(링크형·웹에서 가져온 스킬) → 크레딧은 '추천인', 원작자 확인 없음
   const isLens = skill.post_type === "lens";
   const isApp = skill.post_type === "app"; // HTML 앱: 결과물이 HTML 파일 하나 → 상세에서 바로 실행
   const appUrl = `/skills/${skill.slug}/app?v=${shown.id}`;
@@ -139,11 +140,11 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
           <div className="glass rounded-3xl p-7">
             <div className="mb-3 flex flex-wrap gap-1.5">
               {picked && <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold">✦ 에디터 픽</span>}
-              {curated && <span className="rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-black/15">✓ 검수 완료 {vl(curated.version)}</span>}
+              {curated && <span className="rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-black/15">✓ 검수 완료</span>}
               {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">검수 대기 · 나와 에디터만 보임</span>}
               {skill.visibility === "restricted" && <span className="rounded-full bg-ink px-3 py-1 text-xs text-white">비공개</span>}
             </div>
-            {!isLink && skill.author_email === viewer.email && skill.author_confirmed === null && skill.owner_id !== viewer.id && (
+            {!isRec && skill.author_email === viewer.email && skill.author_confirmed === null && skill.owner_id !== viewer.id && (
               <div className="mb-4 rounded-2xl bg-amber-50 p-4 text-sm ring-1 ring-amber-200">
                 <p><b>{owner?.name || owner?.email}</b> 님이 이 글의 원작자로 회원님을 적었습니다. 맞나요?</p>
                 <div className="mt-3 flex gap-2">
@@ -234,21 +235,27 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
                   <dd className="font-semibold">{skill.person}</dd>
                 </div>
               )}
-              {isLink && (
+              {isRec && (
                 <div className="flex gap-3">
                   <dt className="w-16 shrink-0 text-black/45">만든 곳</dt>
                   <dd className="font-semibold">{skill.maker}</dd>
                 </div>
               )}
+              {isRec && !isLink && skill.homepage_url && (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-black/45">출처</dt>
+                  <dd className="min-w-0"><a href={skill.homepage_url} target="_blank" rel="noopener noreferrer" className="block truncate underline">{skill.homepage_url.replace(/^https?:\/\//, "")}</a></dd>
+                </div>
+              )}
               <div className="flex gap-3">
-                <dt className="w-16 shrink-0 text-black/45">{isLink ? "추천인" : "원작자"}</dt>
+                <dt className="w-16 shrink-0 text-black/45">{isRec ? "추천인" : "원작자"}</dt>
                 <dd>
                   <Link href={`/u/${encodeURIComponent(skill.author_email)}`} className="font-semibold hover:underline">{skill.author_name}</Link>
-                  {!isLink && skill.author_confirmed === null && <span className="ml-1.5 text-xs text-black/45">(원작자 확인 대기)</span>}
-                  {!isLink && skill.author_confirmed === false && <span className="ml-1.5 text-xs text-red-600">(원작자가 본인이 아니라고 함 · 에디터 확인 중)</span>}
+                  {!isRec && skill.author_confirmed === null && <span className="ml-1.5 text-xs text-black/45">(원작자 확인 대기)</span>}
+                  {!isRec && skill.author_confirmed === false && <span className="ml-1.5 text-xs text-red-600">(원작자가 본인이 아니라고 함 · 에디터 확인 중)</span>}
                   {history.length > 1 && (
                     <details className="mt-1 text-xs text-black/55">
-                      <summary className="cursor-pointer">{isLink ? "추천인" : "원작자"} 변경 이력 {history.length - 1}건</summary>
+                      <summary className="cursor-pointer">{isRec ? "추천인" : "원작자"} 변경 이력 {history.length - 1}건</summary>
                       <ol className="mt-1 space-y-0.5">
                         {history.map((h, i) => (
                           <li key={i}>{fmtDate(h.created_at)} · {h.author_name} ({h.author_email}) <span className="text-black/40">— {i === 0 ? "등록" : "변경"}: {h.changed_by}</span></li>

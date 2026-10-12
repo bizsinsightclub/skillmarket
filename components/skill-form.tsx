@@ -47,6 +47,7 @@ export default function SkillForm({
   const [state, dispatch, pending] = useActionState(action, {});
   const [visibility, setVisibility] = useState(values.visibility);
   const [category, setCategory] = useState(values.category);
+  const [external, setExternal] = useState(!!values.maker); // 스킬·HTML 앱: 웹에서 받은 공개 스킬 등 외부에서 만든 것
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const error = uploadError ?? state.error;
@@ -60,7 +61,9 @@ export default function SkillForm({
   const isApp = type === "app";
   // 수정할 때는 글 종류를 못 바꾼다 → 같은 종류 분류만 보여 준다
   const options = mode === "edit" ? categories.filter((c) => c.post_type === typeOf(values.category)) : categories;
-  const creditWho = isLink ? "추천인" : "원작자";
+  const canExternal = type === "skill" || isApp; // 렌즈는 '○○ 기반' 출처 표기가 따로 있다
+  const isExternal = canExternal && external;
+  const creditWho = isLink || isExternal ? "추천인" : "원작자";
   const TYPE_LABEL: Record<PostType, string> = { skill: "스킬", link: "", lens: "", app: "HTML 앱" };
 
   return (
@@ -110,8 +113,8 @@ export default function SkillForm({
               </label>
             </>
           )}
-          <div className="flex gap-4">
-            <label className={`${label} w-48`}>
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <label className={`${label} sm:w-48`}>
               기반 인물 *
               <input name="person" defaultValue={values.person} maxLength={40} required placeholder="예: 김난도" className={input} />
             </label>
@@ -198,8 +201,29 @@ export default function SkillForm({
       </label>
 
       <fieldset className="panel flex flex-col gap-3 rounded-2xl p-5">
-        <legend className={legend}>{isLink ? "추천인" : "원작자 크레딧"}</legend>
-        <div className="flex gap-4">
+        <legend className={legend}>{isLink ? "추천인" : isExternal ? "크레딧" : "원작자 크레딧"}</legend>
+        {canExternal && (
+          <div className="flex flex-col gap-2 text-sm">
+            누가 만들었나요?
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <label><input type="radio" name="origin" value="inhouse" checked={!external} onChange={() => setExternal(false)} /> 사내 (내가 또는 동료가 만듦)</label>
+              <label><input type="radio" name="origin" value="external" checked={external} onChange={() => setExternal(true)} /> 외부 (웹에 공개된 것을 가져옴)</label>
+            </div>
+          </div>
+        )}
+        {isExternal && (
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <label className={`${label} sm:w-48`}>
+              만든 곳 *
+              <input name="maker" defaultValue={values.maker} maxLength={80} required placeholder="예: Anthropic" className={input} />
+            </label>
+            <label className={`${label} flex-1`}>
+              출처 주소 *
+              <input name="homepage_url" type="url" defaultValue={values.homepage_url} required placeholder="https://github.com/…" className={input} />
+            </label>
+          </div>
+        )}
+        <div className="flex flex-col gap-4 sm:flex-row">
           <label className={`${label} flex-1`}>
             {creditWho} 이름 *
             <input name="author_name" defaultValue={values.author_name} maxLength={50} required className={input} />
@@ -209,7 +233,8 @@ export default function SkillForm({
             <input name="author_email" type="email" defaultValue={values.author_email} required className={input} />
           </label>
         </div>
-        <span className={hint}>본인이 아닌 사람을 적으면 그 사람에게 확인 메일이 가고, 확인 전까지 &lsquo;확인 대기&rsquo;로 표시됩니다. 바꾼 기록은 남습니다.</span>
+        {isExternal && <span className={hint}>외부에서 만든 것은 &lsquo;by 만든 곳 · 추천 ○○&rsquo;으로 표시되고, 내 기여 숫자에는 들어가지 않습니다.</span>}
+        {!isLink && !isExternal && <span className={hint}>본인이 아닌 사람을 적으면 그 사람에게 확인 메일이 가고, 확인 전까지 &lsquo;확인 대기&rsquo;로 표시됩니다. 바꾼 기록은 남습니다.</span>}
         {!isLink && (
           <label className={label}>
             {isLens ? "원본 렌즈 (다른 렌즈를 고쳐 만든 경우)" : isApp ? "원본 (다른 글을 고쳐 만든 경우)" : "원본 스킬 (다른 스킬을 고쳐 만든 경우)"}

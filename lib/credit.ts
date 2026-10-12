@@ -9,7 +9,7 @@ export const MAX_AUTHOR_MAILS_GLOBAL_DAY = 30;
 
 // 원작자 기록: 등록·변경 때마다 이력을 남긴다(바꿀 수는 있되 기록은 지우지 않는다).
 // 원작자 이메일이 바뀌면 확인 상태를 다시 정한다 — 원작자 본인이 적었으면 확인됨, 남이 적었으면 확인 대기.
-// 링크형의 크레딧은 '추천인'이라 확인 절차 없이 확인됨.
+// 링크형·외부 제작물(isLink)의 크레딧은 '추천인'이라 확인 절차 없이 확인됨.
 // 반환값 = 원작자에게 확인 메일을 보낼지(보낼 몫을 mail_log 에 미리 잡는다). 트랜잭션 안에서 부르고, 메일은 커밋 뒤에 보낸다.
 export async function recordAuthor(db: Db, p: { skillId: number; name: string; email: string; by: { id: number; email: string }; isLink?: boolean }) {
   const cur = await one<{ author_name: string; author_email: string }>(

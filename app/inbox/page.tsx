@@ -30,11 +30,11 @@ export default async function InboxPage() {
                 <div className="min-w-0 flex-1">
                   <p>
                     {n.kind === "install" ? (
-                      <><b>{n.actor}</b> 님이 <Link href={n.href} className="font-semibold underline">{n.name}</Link> 을(를) 받아 갔습니다.</>
+                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> · <b>{n.actor}</b> 님이 받아 갔습니다.</>
                     ) : n.kind === "use" ? (
-                      <><b>{n.actor}</b> 님이 <Link href={n.href} className="font-semibold underline">{n.name}</Link> 을(를) 써봤어요.</>
+                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> · <b>{n.actor}</b> 님이 써봤어요.</>
                     ) : n.kind === "pick" ? (
-                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> 이(가) 에디터 픽으로 선정됐습니다.</>
+                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> · 에디터 픽으로 선정됐습니다.</>
                     ) : n.kind === "author" ? (
                       <><b>{n.actor}</b> 님이 <Link href={n.href} className="font-semibold underline">{n.name}</Link> 의 원작자로 회원님을 적었습니다. 글에서 맞는지 답해 주세요.</>
                     ) : n.kind === "report" ? (
@@ -46,7 +46,7 @@ export default async function InboxPage() {
                     ) : n.kind === "reply" ? (
                       <><b>{n.actor}</b> 님이 <Link href={n.href} className="font-semibold underline">{n.name}</Link> 의 내 댓글에 답글을 남겼습니다.</>
                     ) : n.decision === "approved" ? (
-                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> 이(가) 검수를 통과했습니다. <span className="text-black/50">({n.actor})</span></>
+                      <><Link href={n.href} className="font-semibold underline">{n.name}</Link> · 검수를 통과했습니다. <span className="text-black/50">({n.actor})</span></>
                     ) : (
                       <><Link href={n.href} className="font-semibold underline">{n.name}</Link> 검수가 반려됐습니다. <span className="text-black/50">({n.actor})</span></>
                     )}
