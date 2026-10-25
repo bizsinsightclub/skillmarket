@@ -35,6 +35,14 @@
 - 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 처리한 저장소는 `briefing_seen` 에 남겨, 에디터가 지운 글이 다음 브리핑에 또 나와도 되살리지 않는다. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
 - ponytail: README 를 읽어 설치 명령·주의점을 채우는 건 하지 않는다(LLM 필요) — 지금은 브리핑 설명 + 저장소 링크만, 나머지는 에디터가 수정.
 
+## The Lens 렌즈 자동 등록 (2026-10-25)
+
+- The Lens(magilite) 저장소의 렌즈 파일이 바뀌면 magilite GitHub Actions(`.github/workflows/skillmarket-sync.yml` → `scripts/sync_skillmarket.py`)가 **렌즈 하나당 한 번** `POST /api/lens-sync` 를 부른다. `proxy.ts` 로그인 검사에서 빠지고 `Authorization: Bearer LENS_SYNC_SECRET` 로만 연다.
+- 본문 JSON: `lens_id`(EXPERT-09 등) · `md`(렌즈 .md 원문) · `person` · `basis` · `summary` · `portrait`(초상 base64, 선택, 3MB). 모양 검사·저장은 `lib/lens-sync.ts`(테스트 있음), 렌즈 검사는 업로드 화면과 같은 `parseLensFile`.
+- `skills.lens_source` = The Lens 의 렌즈 id(손으로 올린 글은 NULL, 유일). 처음 보는 렌즈 → 렌즈 분류(`post_type='lens'` 첫 분류)에 글 생성 + 1.0.0 + 초상 썸네일 + **검수 대기**. 같은 파일 → 아무것도 안 함(몇 번 보내도 같음). 파일이 바뀜 → 새 버전(1.0.0 → 1.1.0) + 다시 검수 대기(에디터 픽은 승인된 버전을 계속 보여준다).
+- 자동 등록 전에 손으로 올린 같은 렌즈는 **기반 인물이 같은 렌즈 글이 딱 하나일 때만** 이어받는다(`lens_source` 를 채우고 새 버전으로). 애매하면 새 글.
+- 사이트에서 고친 이름·요약·태그·이미지는 덮어쓰지 않는다. 초상은 이미지가 하나도 없을 때만 넣는다. 올린 사람·원작자 칸 = `EDITOR_EMAILS` 첫 번째(브리핑과 같음).
+
 ## 댓글·공감 (2026-10-06)
 
 - 스킬·플러그인·렌즈 글과 게시판 글 아래 같은 댓글 영역(`components/comments.tsx`). 평문(마크다운 아님), 2000자.
@@ -51,7 +59,7 @@
    - 링크형도 큐레이션 모델을 그대로 쓰려고 `version='link'`, `zip_path=''` 인 '등록본' 버전 한 줄을 만든다(`lib/link-post.ts`). 수정해도 새 버전이 생기지 않는다.
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
-     - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
+     - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사. 반대 방향(The Lens 저장소 → 스킬마켓)은 자동 등록이 있다(아래 'The Lens 렌즈 자동 등록').
      - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기), 로고는 '스킬마켓' 글자만. md~xl(768~1279px)은 메뉴 아이콘만, 헤더 검색창은 1400px 부터(메뉴 5개라 그 아래선 한 줄에 안 들어감).
      - 전문가 탭의 '렌즈 올리기' 옆(소개 영역·목록 위)에 "시스템 사용 문의는 김민석 프로에게" 안내(`Catalog` 의 `note`). 이메일은 공개 저장소라 코드에 넣지 않는다. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
@@ -134,6 +142,7 @@ posts(id, author_id, title, body_md, link_url, created_at, updated_at)          
 comments(id, skill_id NULL, post_id NULL, parent_id NULL, author_id, body, deleted, created_at)  -- 둘 중 하나에만
 comment_reactions(user_id, comment_id) · post_reactions(user_id, post_id) · post_images(path, uploader_id)
 briefing_seen(url)                                          -- 브리핑에서 처리한 저장소
+-- skills.lens_source: The Lens 렌즈 id(자동 등록 글만, 유일)
 ```
 좋아요·설치 수는 집계 쿼리. 느려지면 그때 카운터 컬럼.
 트렌딩 점수 = 최근 7일 (설치 + 좋아요 × 3).
@@ -159,7 +168,7 @@ briefing_seen(url)                                          -- 브리핑에서 �
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑 Cron), `ALLOWED_EMAIL_DOMAINS`(선택). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑 Cron), `LENS_SYNC_SECRET`(The Lens 렌즈 자동 등록 — magilite GitHub 시크릿 `SKILLMARKET_SYNC_SECRET` 과 같은 값), `ALLOWED_EMAIL_DOMAINS`(선택). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 
@@ -177,6 +186,7 @@ lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 �
                       skill-zip.ts zip 검증·재압축·이미지 판별  storage.ts Supabase Storage(서버 전용)
                       curation.ts  승인·반려·에디터 픽 규칙     format.ts 날짜(KST) 표시
                       briefing.ts  브리핑 메일 해석·글 등록      briefing-mail.ts Gmail IMAP(보낸편지함)
+                      lens-sync.ts The Lens 렌즈 자동 등록(요청 검사·글 생성/새 버전)
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
 components/           comments·comment-form(댓글 영역), post-form(게시판 글), submit-button(처리 중 표시), skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
