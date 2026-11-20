@@ -10,6 +10,7 @@ import { canEdit, getSkill, setEmbedding, type Viewer } from "./queries";
 import { embedOne } from "./embeddings";
 import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
+import { classifyTopic } from "./topics";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
 import { MAX_APP_BYTES, parseHtmlApp } from "./html-app";
 import type { Kind } from "./queries";
@@ -284,6 +285,17 @@ async function reembed(db: Db, slug: string) {
   }
 }
 
+// 링크형(플러그인·오픈소스)만 분야 폴더를 Haiku 로 매긴다(키 없으면 'etc'). 실패해도 저장은 그대로.
+async function retopic(db: Db, slug: string) {
+  try {
+    const s = await one<{ id: number; name: string; summary: string; post_type: Kind }>(db, "SELECT s.id, s.name, s.summary, c.post_type FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE s.slug = $1", [slug]);
+    if (!s || s.post_type !== "link") return;
+    await db.query("UPDATE app.skills SET topic = $2 WHERE id = $1", [s.id, await classifyTopic(s.name, s.summary)]);
+  } catch (e) {
+    console.error("[topic] 실패", e);
+  }
+}
+
 async function editable(slug: string) {
   const { user, viewer } = await requireViewer();
   const db = getDb();
@@ -363,6 +375,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   const m = mailAuthor as { email: string; name: string } | null; // tx 콜백 안에서 채워져 TS 가 좁히지 못한다
   if (m) await sendAuthorConfirm(m.email, { skillName: m.name, uploader: user.name || user.email, slug });
   await reembed(db, slug);
+  await retopic(db, slug);
   revalidatePath("/");
   redirect(`/skills/${slug}`);
 }
@@ -420,6 +433,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
   await remove(removedFiles); // 커밋 후에만 파일 삭제
   if (mailAuthor) await sendAuthorConfirm(meta.author_email, { skillName: meta.name, uploader: user.name || user.email, slug });
   await reembed(db, slug);
+  await retopic(db, slug);
   revalidatePath(`/skills/${slug}`);
   redirect(`/skills/${slug}`);
 }

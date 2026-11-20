@@ -66,7 +66,7 @@ function toVec(e: unknown): number[] | null {
 export async function listBoard(
   db: Db,
   v: Viewer,
-  opts: { tab?: Tab; kind?: Kind; made?: boolean; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number; queryEmbedding?: number[] | null } = {},
+  opts: { tab?: Tab; kind?: Kind; made?: boolean; category?: string; topic?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number; queryEmbedding?: number[] | null } = {},
 ): Promise<{ rows: BoardRow[]; total: number }> {
   const p = new Params();
   const where = [visible(v, p)];
@@ -76,6 +76,8 @@ export async function listBoard(
   if (opts.kind) where.push(`c.post_type = ${p.add(opts.kind)}`);
   if (opts.made !== undefined) where.push(`${opts.made ? "" : "NOT "}${MADE}`); // true = 직접 만든 글, false = 추천한 글
   if (opts.category) where.push(`s.category = ${p.add(opts.category)}`);
+  // 플러그인 분야 폴더: etc 는 미분류(NULL)도 포함
+  if (opts.topic) where.push(opts.topic === "etc" ? "(s.topic IS NULL OR s.topic = 'etc')" : `s.topic = ${p.add(opts.topic)}`);
   if (opts.author) where.push(`s.author_email = ${p.add(opts.author)}`);
 
   const q = opts.q?.trim();
@@ -178,6 +180,21 @@ export type Skill = {
 };
 
 // 단건 조회도 가시성 필터를 거친다. 못 보면 undefined → 호출부에서 notFound().
+// 플러그인 분야 폴더 그리드용: 보이는 링크형 글을 분야별로 센다(미분류·etc 는 'etc' 로 합산).
+export async function pluginTopicCounts(db: Db, v: Viewer): Promise<Record<string, number>> {
+  const p = new Params();
+  const rows = await db.query<{ topic: string; n: number }>(
+    `SELECT COALESCE(s.topic, 'etc') AS topic, COUNT(*)::int AS n
+     FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     WHERE ${visible(v, p)} AND c.post_type = 'link'
+     GROUP BY 1`,
+    p.values,
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.topic] = (out[r.topic] ?? 0) + r.n;
+  return out;
+}
+
 export function getSkill(db: Db, v: Viewer, key: { slug: string } | { id: number }) {
   const p = new Params();
   const cond = "slug" in key ? `s.slug = ${p.add(key.slug)}` : `s.id = ${p.add(key.id)}`;

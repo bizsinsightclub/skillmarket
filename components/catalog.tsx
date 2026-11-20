@@ -26,17 +26,18 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
   const sorts: [Sort, string][] = onlyPicks ? [["picked", "최근 선정"], ...SORTS] : SORTS;
   const sort = pick(sp.sort, sorts, onlyPicks ? "picked" : "latest");
   const category = str("category");
+  const topic = str("topic"); // 플러그인 분야 폴더(링크형만 씀)
   const q = str("q");
   const page = Math.max(1, Number(str("page")) || 1);
 
   const db = getDb();
   // 검색어가 있으면 의미 검색용 임베딩을 구한다(키 없으면 null → listBoard 가 키워드로 폴백)
   const [categories, queryEmbedding] = await Promise.all([listCategories(db, kind), q ? embedOne(q, "query") : Promise.resolve(null)]);
-  const { rows, total } = await listBoard(db, viewer, { tab, kind, sort, category, q, page, queryEmbedding });
+  const { rows, total } = await listBoard(db, viewer, { tab, kind, sort, category, topic, q, page, queryEmbedding });
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const href = (patch: Record<string, string | number>) => {
-    const p = new URLSearchParams({ tab, sort, category, q, page: String(page), ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, String(v)])) });
+    const p = new URLSearchParams({ tab, sort, category, topic, q, page: String(page), ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, String(v)])) });
     const defaultSort = onlyPicks ? "picked" : "latest";
     for (const [k, v] of [...p]) if (!v || (k === "tab" && (v === "all" || onlyPicks)) || (k === "sort" && v === defaultSort) || (k === "page" && v === "1")) p.delete(k);
     const s = p.toString();

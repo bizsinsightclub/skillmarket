@@ -57,7 +57,20 @@
 - `VOYAGE_API_KEY` 없으면 임베딩이 null → **기존 키워드(ILIKE) 검색으로 자동 폴백**(키 없이 배포해도 안전). 검색어가 있을 때 `components/catalog.tsx` 가 쿼리를 임베딩해 `listBoard({ queryEmbedding })` 로 넘긴다.
 - 벡터는 `skills.embedding real[]` 에 저장(pgvector 안 씀 — PGlite 테스트 호환·코퍼스 작음). `listBoard` 가 후보 전수 코사인으로 정렬, 유사도 `SEM_FLOOR(0.35)` 미만은 제외, 관련 결과 없으면 키워드 폴백. **ponytail: 수천 개로 커지면 pgvector + hnsw 로.**
 - 업로드·수정 때 `reembed`(이름+요약+설명)로 저장(외부 API, 커밋 뒤·실패해도 저장은 그대로). 기존 글 백필은 `scripts` 외 1회성(배치 64개씩 Voyage).
-- ponytail: 주제 자동분류·링크형 안전검사(skillspector)는 같은 '올릴 때 AI 보강' 훅을 공유 — 다음 차례.
+- ponytail: 링크형 안전검사(skillspector)는 같은 '올릴 때 AI 보강' 훅을 공유 — 다음 차례.
+
+### AI 추천 챗봇 (2026-11-20)
+
+"원하는 스킬 찾아주는" 추천 도우미(`/ask`, 헤더 메뉴 'AI 추천' 인디고, `components/ask-chat.tsx`). **추천만** — 실행·설치는 안 하고 링크만.
+- `lib/ask.ts`: 질문을 임베딩해 `listBoard` 의미검색 top-8(가시성 필터 그대로) → 그 **후보 메타(이름·요약)만** Haiku(`claude-haiku-5-5`)에 넘겨 왜 맞는지 한국어로 설명. 링크·카드는 코드가 슬러그로 만든다 → 모델이 스킬·URL 을 지어낼 수 없음(환각 차단). `/api/ask` 가 로그인·입력 모양 검사.
+- `ANTHROPIC_API_KEY`(콘솔 크레딧) 없으면 설명은 null → 화면은 **카드(의미 검색 결과)만**(키 없이 배포해도 안전). Haiku 호출은 fetch(새 의존성 없음), thinking 끄고 effort low.
+
+### 플러그인 분야 폴더 (2026-11-20)
+
+플러그인·MCP 는 수가 압도적(링크형 ~109개, 대부분 오픈소스 한 바구니)이라 **분야 폴더**로 먼저 나눈다. 종류(plugin/mcp/oss = `category`)와 별개의 축.
+- 분야 = `skills.topic`(`lib/topics.ts` 의 `PLUGIN_TOPICS`: 문서·글쓰기/슬라이드·발표/데이터·분석/디자인·이미지/개발/자동화·업무/기타). **Haiku 가 이름+요약으로 분야 1개 배정**(업로드·수정 때 `retopic`, 링크형만, 실패·키없으면 'etc'). 기존 글은 1회성 백필(배치 30).
+- `/plugins`: topic·검색 없으면 **분야 폴더 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
+- ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
 
@@ -84,7 +97,7 @@
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
-     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기), 로고는 '스킬마켓' 글자만. md~xl(768~1279px)은 메뉴 아이콘만, 헤더 검색창은 1400px 부터(메뉴 5개라 그 아래선 한 줄에 안 들어감).
+     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(AI 추천 인디고 · 스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기·가로 스크롤), 로고는 '스킬마켓' 글자만. md~xl(768~1279px)은 메뉴 아이콘만, 헤더 검색창은 1400px 부터(메뉴 6개라 그 아래선 한 줄에 안 들어감).
      - 전문가 탭의 '렌즈 올리기' 옆(소개 영역·목록 위)에 "시스템 사용 문의는 김민석 프로에게" 안내(`Catalog` 의 `note`). 이메일은 공개 저장소라 코드에 넣지 않는다. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
@@ -159,6 +172,7 @@ skills(id, slug UNIQUE, name, summary, body_md, category, tags,
        curation_status['none'|'pending'|'approved'|'rejected'], curated_version_id NULL,   -- 승인 버전
        picked_at NULL, revoked_at NULL, author_confirmed NULL, agreed_at NULL,             -- 에디터 픽·승인 취소·원작자 확인·등록 동의
        embedding real[] NULL,                                                              -- 의미 검색용 Voyage 임베딩(없으면 키워드 폴백)
+       topic text NULL,                                                                     -- 링크형 분야 폴더(lib/topics.ts, Haiku 분류, NULL=기타)
        created_at, updated_at)
 skill_versions(id, skill_id, version, zip_path, skill_md, uploaded_by→users, changelog, created_at)
 skill_access(skill_id, email)
@@ -200,7 +214,7 @@ mail_log(id, kind, email, created_at)                       -- 알림 메일 발
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인), `VOYAGE_API_KEY`(선택, 의미 검색 임베딩용 Voyage — 없으면 키워드 검색). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인), `VOYAGE_API_KEY`(선택, 의미 검색 임베딩용 Voyage — 없으면 키워드 검색), `ANTHROPIC_API_KEY`(선택, AI 추천 챗봇 설명 + 플러그인 분야 분류용 Haiku 콘솔 크레딧 — 없으면 챗봇은 카드만·분야는 기타). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 

@@ -1,8 +1,12 @@
 import Link from "next/link";
 
-// 헤더 로고 옆 메뉴 상자. 메뉴마다 고유 색·아이콘으로 구분한다(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). (에디터 픽은 홈 조명이 맡아 메뉴에서 뺐다)
+// 헤더 로고 옆 메뉴 상자. 메뉴마다 고유 색·아이콘으로 구분한다(AI 추천 인디고 · 스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). (에디터 픽은 홈 조명이 맡아 메뉴에서 뺐다)
 // 현재 위치는 페이지가 그린 <span hidden data-tab="…"> 표식을 globals.css 의 :has() 가 읽어 꽉 찬 색으로 칠한다(JS 없음).
 const MENU = [
+  {
+    href: "/ask", label: "AI 추천", cls: "menu-ask bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
+    icon: <><path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3H5a2 2 0 0 1-2-2V5Z" /><path d="M8 8h4M8 10.5h2" /></>,
+  },
   {
     href: "/skills", label: "스킬", cls: "menu-skills bg-accent/40 text-ink hover:bg-accent/70",
     icon: <><path d="M10 2 2 6l8 4 8-4-8-4Z" /><path d="m2 10 8 4 8-4" /><path d="m2 14 8 4 8-4" /></>,
