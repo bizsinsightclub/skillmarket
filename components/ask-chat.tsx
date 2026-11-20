@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import Markdown from "@/components/markdown";
 
 // 원하는 스킬을 찾아주는 추천 챗봇. 질문 → /api/ask → 설명 + 후보 카드.
 // 설명(answer)은 Haiku, 카드(picks)는 의미 검색 결과(링크는 서버가 슬러그로 생성 → 환각 없음).
@@ -56,22 +57,23 @@ export default function AskChat() {
           </div>
         )}
         {msgs.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "self-end" : "self-start"}>
+          <div key={i} className={m.role === "user" ? "max-w-[85%] self-end" : "w-full max-w-[88%] self-start"}>
             {m.role === "user" ? (
               <p className="rounded-2xl bg-ink px-4 py-2 text-sm text-white">{m.content}</p>
             ) : (
-              <div className="flex flex-col gap-3">
-                <p className="whitespace-pre-wrap rounded-2xl glass px-4 py-3 text-sm leading-relaxed text-black/80">{m.content}</p>
+              <div className="flex flex-col gap-2">
+                <div className="md-chat rounded-2xl glass px-4 py-3 text-sm leading-relaxed text-black/80">
+                  <Markdown>{m.content}</Markdown>
+                </div>
                 {!!m.picks?.length && (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     {m.picks.map((p) => (
-                      <Link key={p.slug} href={`/skills/${p.slug}`} className="panel flex items-center gap-3 rounded-xl p-3 hover:ring-2 hover:ring-accent/50">
-                        {p.thumb && <img src={p.thumb} alt="" className="h-12 w-20 shrink-0 rounded-lg object-cover" />}
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-ink">{p.name}</span>
-                          <span className="block truncate text-xs text-black/50">{KIND_KO[p.post_type] ?? p.post_type} · {p.category_label} · {p.maker || `by ${p.author_name}`}</span>
-                          {p.summary && <span className="mt-0.5 block truncate text-xs text-black/60">{p.summary}</span>}
+                      <Link key={p.slug} href={`/skills/${p.slug}`} className="panel block rounded-xl px-3 py-2 hover:ring-2 hover:ring-accent/50">
+                        <span className="flex items-baseline gap-2">
+                          <span className="truncate text-sm font-bold text-ink">{p.name}</span>
+                          <span className="shrink-0 text-[11px] text-black/40">{KIND_KO[p.post_type] ?? p.post_type}</span>
                         </span>
+                        {p.summary && <span className="mt-0.5 block truncate text-xs text-black/55">{p.summary}</span>}
                       </Link>
                     ))}
                   </div>
