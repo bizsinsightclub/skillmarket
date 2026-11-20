@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
 import { one } from "./db.ts";
 import { review, pick, unpick, revoke, autoRequest, CurationError } from "./curation.ts";
+import { listPending, listSnapshots } from "./queries.ts";
 
 const SEED = `
   INSERT INTO app.users (id, email) OVERRIDING SYSTEM VALUE VALUES (1, 'owner@samsung.com'), (9, 'editor@samsung.com');
@@ -34,6 +35,16 @@ test("재검수 반려돼도 이전 승인 버전 유지, 반려는 사유 필�
   await assert.rejects(review(db, { skillId: 1, versionId: 11, editorId: 9, decision: "rejected", note: " " }), CurationError);
   await review(db, { skillId: 1, versionId: 11, editorId: 9, decision: "rejected", note: "설명 부족" });
   assert.deepEqual(await row(), { curation_status: "rejected", curated_version_id: 10, picked: false });
+});
+
+test("데모 바꿔치기: 재승인 전 데모는 남에게 감춰지고(이미지는 그대로), 승인하면 풀린다", async () => {
+  const db = await testDb(SEED + `INSERT INTO app.snapshots (skill_id, kind, path, pending) VALUES (1, 'demo', 'd1', true), (1, 'image', 'i1', false);`);
+  const hasDemo = async (hide: boolean) => (await listSnapshots(db, 1, hide)).some((s) => s.kind === "demo");
+  assert.equal(await hasDemo(false), true); // 올린 사람·원작자·에디터
+  assert.equal(await hasDemo(true), false); // 남은 못 봄
+  assert.equal((await listSnapshots(db, 1, true)).some((s) => s.kind === "image"), true); // 이미지(썸네일)는 그대로
+  await review(db, { skillId: 1, versionId: 10, editorId: 9, decision: "approved", note: "" });
+  assert.equal(await hasDemo(true), true); // 승인되면 남에게도 보임
 });
 
 test("다른 스킬의 버전으로는 승인 불가", async () => {
@@ -87,4 +98,15 @@ test("자동 검수 요청: 전사 공개·링크형 아님·최신 버전이 �
   await db.query("UPDATE app.skills SET visibility = 'public', category = 'plugin' WHERE id = 2");
   await autoRequest(db, 2); // 링크형도 아님
   assert.equal(await status(2), "none");
+});
+
+test("검수 대기함은 최신 버전을 보여 주고, 그 버전으로 승인하면 대기함에서 빠진다", async () => {
+  const { db } = await setup();
+  await db.query(V2);
+  const [p] = await listPending(db);
+  assert.equal(p.id, 1);
+  assert.equal(p.version_id, 11);
+  assert.equal(p.version, "2.0");
+  await review(db, { skillId: 1, versionId: p.version_id, editorId: 9, decision: "approved", note: "" });
+  assert.equal((await listPending(db)).length, 0);
 });

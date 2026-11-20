@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseHtmlApp, MAX_APP_BYTES, APP_SANDBOX, withStorageShim } from "./html-app.ts";
+import { parseHtmlApp, MAX_APP_BYTES, APP_SANDBOX, APP_CSP, DEMO_CSP, withStorageShim } from "./html-app.ts";
 import { UploadError } from "./skill-zip.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -17,6 +17,14 @@ test("HTML 앱: 제목 추출, HTML 아님·빈 파일·UTF-8 아님·4MB 초과
 test("HTML 앱 격리: 같은 출처 권한은 절대 주지 않는다", () => {
   assert.doesNotMatch(APP_SANDBOX, /allow-same-origin|allow-top-navigation|allow-popups-to-escape-sandbox/);
   assert.match(APP_SANDBOX, /allow-scripts/);
+});
+
+test("응답 CSP: 폼 바깥 전송 차단(form-action 'none'), 같은 출처 권한 없음 — 로그인 코드 피싱 방지", () => {
+  for (const csp of [APP_CSP, DEMO_CSP]) {
+    assert.match(csp, /form-action 'none'/);
+    assert.match(csp, /^sandbox /);
+    assert.doesNotMatch(csp, /allow-same-origin/);
+  }
 });
 
 test("저장소 대체 코드: <head> 뒤 → 없으면 doctype 뒤 → 없으면 맨 앞(doctype 앞에 끼면 표준 모드가 깨진다)", () => {

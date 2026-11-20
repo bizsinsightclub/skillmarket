@@ -14,7 +14,7 @@
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
 - `/hall` 명예의 전당(최근 30일·전체) · `/write/template` SKILL.md 양식 zip
-- `/u/[email]` 원작자 페이지(합계 + 카드, **만든 글 / 추천한 글** 탭 — 추천한 외부 플러그인·MCP·오픈소스를 만든 것처럼 보이지 않게, 합계도 만든 글만) · `/me` 내 정보(프로필 + **내 기여** 대시보드: 공개된 내 글·받아 간 사람·이번 달·써봤어요·받은 좋아요, 내 글별 상태·수치) · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
+- `/u/[email]` 원작자 페이지(합계 + 카드, **만든 글 / 추천한 글** 탭 — 추천한 외부 플러그인·MCP·오픈소스를 만든 것처럼 보이지 않게, 합계도 만든 글만) · `/me` 내 정보(프로필 + **내 기여** 대시보드: 공개된 내 글·받아 간 사람·이번 달·써봤어요·받은 좋아요, 내 글별 상태·수치) · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수. 줄마다 승인·반려(사유)·삭제, 체크해서 한꺼번에 승인·삭제, 이름에 마우스를 올리면 요약 풍선 — 승인은 목록에 보인 최신 버전으로 고정) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
 - `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 본문 이미지 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
   - 본문 이미지: 버튼·붙여넣기·끌어다 놓기 → 브라우저가 tmp 에 직접 올림 → `attachBoardImage` 가 바이트로 판별(png/jpg/webp/gif, 장당 5MB)해 `board/<uuid>` 로 옮기고 `post_images` 에 등록 → 커서 자리에 `![](/files/board/…)`. `/files` 는 등록된 board 경로만, 로그인한 사람 누구나. ponytail: 저장 안 한 글·지운 글의 이미지는 남는다(정리 미구현).
 - **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
@@ -48,7 +48,16 @@
 - **알림함**: 받아 감(사람·글당 한 번)·써봤어요·에디터 픽은 올린 사람과 원작자 모두에게, 원작자 확인 요청은 원작자에게, 신고 처리 결과는 신고자에게.
 - **월간 기여 메일**: Vercel Cron 매달 1~7일 09:00 KST → `/api/cron/monthly`(CRON_SECRET). 지난달 활동이 있는 사내 원작자에게만, 하루 60통씩 나눠서. 한 사람씩 `digest_sent(month, email)` 로 잡고 보내고, 실패하면 풀어 다음 날 다시 → 같은 달 한 번.
 - **SKILL.md 양식**: `/write/template` 가 `my-skill/SKILL.md` 양식 zip 을 준다(올리기 화면 zip 칸 옆 링크).
-- 미구현(요청 시): 부서별 현황(부서 칸이 자유 입력이라 집계 불가 → 고정 목록 필요), 공개 예약(embargo), 의미 검색, 인사 연동.
+- 미구현(요청 시): 부서별 현황(부서 칸이 자유 입력이라 집계 불가 → 고정 목록 필요), 공개 예약(embargo), 인사 연동.
+
+### 의미 검색 (2026-11-20)
+
+검색은 **의미(임베딩) + 키워드 폴백**. "슬라이드에 좋은 거"처럼 단어가 글에 없어도 뜻으로 찾는다.
+- 임베딩 = **Voyage**(`lib/embeddings.ts`, `voyage-3.5` 1024차원). Anthropic 은 임베딩 API 가 없어 Voyage(Anthropic 공식 추천). 분류·트리아지용 LLM 은 별개(Anthropic Haiku 예정).
+- `VOYAGE_API_KEY` 없으면 임베딩이 null → **기존 키워드(ILIKE) 검색으로 자동 폴백**(키 없이 배포해도 안전). 검색어가 있을 때 `components/catalog.tsx` 가 쿼리를 임베딩해 `listBoard({ queryEmbedding })` 로 넘긴다.
+- 벡터는 `skills.embedding real[]` 에 저장(pgvector 안 씀 — PGlite 테스트 호환·코퍼스 작음). `listBoard` 가 후보 전수 코사인으로 정렬, 유사도 `SEM_FLOOR(0.35)` 미만은 제외, 관련 결과 없으면 키워드 폴백. **ponytail: 수천 개로 커지면 pgvector + hnsw 로.**
+- 업로드·수정 때 `reembed`(이름+요약+설명)로 저장(외부 API, 커밋 뒤·실패해도 저장은 그대로). 기존 글 백필은 `scripts` 외 1회성(배치 64개씩 Voyage).
+- ponytail: 주제 자동분류·링크형 안전검사(skillspector)는 같은 '올릴 때 AI 보강' 훅을 공유 — 다음 차례.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
 
@@ -80,7 +89,7 @@
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
    - **HTML 앱(`/apps`, 에메랄드)**: 대시보드·도구처럼 HTML 파일 하나가 결과물(분류: 대시보드·도구). 버전 파일 `.html`(UTF-8, 4MB — 함수가 직접 응답하므로), `<title>` 이 이름 기본값(`lib/html-app.ts`).
-     - 실행은 `/skills/[slug]/app`(?v=버전, 기본 = 에디터 픽 승인 버전 → 최신)만: 응답 헤더 `CSP: sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads` + 상세의 iframe 도 같은 sandbox. **allow-same-origin 절대 금지**. Storage 엔 text/plain 으로 저장.
+     - 실행은 `/skills/[slug]/app`(?v=버전, 기본 = 에디터 픽 승인 버전 → 최신)만: 응답 헤더 `CSP: sandbox allow-scripts allow-forms allow-modals allow-popups allow-downloads; form-action 'none'`(`APP_CSP`) + 상세의 iframe 도 같은 sandbox. **allow-same-origin 절대 금지**. `form-action 'none'` 로 올린 앱이 폼을 바깥 서버로 제출하지 못하게(로그인 코드 피싱 폼 차단 — JS 로 처리하는 폼은 그대로). Storage 엔 text/plain 으로 저장.
      - 격리된 화면에선 localStorage 가 막혀 앱이 아예 죽으므로, 막혔을 때만 메모리 저장소로 바꿔 끼우는 짧은 스크립트를 `<head>` 뒤에 넣어 응답한다(`withStorageShim`, 새로고침하면 사라짐).
      - ponytail: 같은 사이트 출처라 앱끼리 저장소 공유·영구 저장은 없음. 필요해지면 별도 도메인 + 서명 토큰 주소로 옮겨 allow-same-origin 을 그 도메인에서만.
    - 수정할 때 글 종류(스킬·링크형·렌즈·HTML 앱) 사이로 분류를 바꿀 수 없다.
@@ -94,7 +103,8 @@
    - 버전마다 올린 사람(`uploaded_by`) 기록 → 기여자 목록은 이것으로 계산(별도 테이블 없음).
    - 원작자 페이지: 그 원작자의 스킬, 받은 좋아요 합계, 설치 합계.
 3. **좋아요** — 사용자당 스킬 1회 토글. `(user_id, skill_id)` PK 로 DB 가 중복을 막는다.
-4. **스냅샷(결과물 미리보기)** — 이미지 여러 장(첫 장이 썸네일) + 선택적 데모 HTML 1개. 데모는 `<iframe sandbox="allow-scripts">` 로만. `allow-same-origin` 절대 금지.
+4. **스냅샷(결과물 미리보기)** — 이미지 여러 장(첫 장이 썸네일) + 선택적 데모 HTML 1개. 데모는 `<iframe sandbox="allow-scripts">` + 응답 CSP `form-action 'none'`(`DEMO_CSP`). `allow-same-origin` 절대 금지.
+   - **데모 바꿔치기 방지**: 에디터가 아닌 사람이 전사 공개 글의 데모를 바꾸면 그 데모는 `pending` 으로 저장돼 **재승인 전까지 남에게 숨긴다**(이미지·썸네일은 그대로). 상세·`/files` 모두 `onlyApproved` 면 막고, 승인(`review`)하면 그 글의 pending 데모가 풀린다. 지정 공개는 검수 흐름이 없어 대상 아님.
 5. **설명** — 요약(한 줄), 본문(마크다운), 분류, 태그, `SKILL.md` 원문, 버전 이력.
 6. **설치** — 받는 zip 은 안에 `<name>/` 폴더 하나(`inFolder`, Claude 앱 업로드 규격). 상세에 두 가지 안내: Claude 앱(웹·데스크톱)은 Customize → Skills → Upload a skill 로 zip 그대로, Claude Code 는 `~/.claude/skills/` 에 풀기. 앱에 올린 스킬·플러그인은 같은 계정의 Claude Code 에도 동기화된다. 플러그인 글은 `/plugin marketplace add owner/repo` 에서 저장소를 뽑아 앱 안내(Customize → Plugins → Add marketplace)도 보여 준다. 다운로드마다 `installs` 에 기록, 설치 수는 받아 간 사람 수(본인 제외)로 센다.
 7. **공개 범위** — `public`(전사) / `restricted`(지정한 이메일만). 소유자가 언제든 전환.
@@ -148,11 +158,12 @@ skills(id, slug UNIQUE, name, summary, body_md, category, tags,
        visibility['public'|'restricted'],
        curation_status['none'|'pending'|'approved'|'rejected'], curated_version_id NULL,   -- 승인 버전
        picked_at NULL, revoked_at NULL, author_confirmed NULL, agreed_at NULL,             -- 에디터 픽·승인 취소·원작자 확인·등록 동의
+       embedding real[] NULL,                                                              -- 의미 검색용 Voyage 임베딩(없으면 키워드 폴백)
        created_at, updated_at)
 skill_versions(id, skill_id, version, zip_path, skill_md, uploaded_by→users, changelog, created_at)
 skill_access(skill_id, email)
 curation_reviews(id, skill_id, version_id, editor_id→users, decision, note, created_at)
-snapshots(id, skill_id, kind['image'|'demo'], path, sort_order)
+snapshots(id, skill_id, kind['image'|'demo'], path, sort_order, pending)   -- pending=데모 재승인 전 숨김
 likes(user_id, skill_id, created_at)
 installs(id, skill_id, version_id, user_id, created_at)   -- 트렌딩 계산용 이벤트 로그
 posts(id, author_id, title, body_md, link_url, created_at, updated_at)            -- AI Breakthrough
@@ -172,7 +183,7 @@ mail_log(id, kind, email, created_at)                       -- 알림 메일 발
 
 - zip: 경로 탈출(`../`, 절대경로) 거부, zip 20MB · 압축 해제 50MB · 파일 500개 상한, 재압축으로 심볼릭 링크 제거.
 - 업로드 이미지는 파일 앞 바이트로 판별(png/jpg/webp/gif), 장당 5MB·10장. SVG 불가.
-- 데모 HTML 은 sandbox iframe 전용 + 응답 헤더 `Content-Security-Policy: sandbox allow-scripts`(직접 열어도 격리). 가능하면 별도 오리진. HTML 앱도 같은 원칙(권한 목록은 `APP_SANDBOX` 하나, 테스트가 allow-same-origin 을 막는다).
+- 데모 HTML 은 sandbox iframe 전용 + 응답 헤더 `Content-Security-Policy: sandbox allow-scripts; form-action 'none'`(`DEMO_CSP`, 직접 열어도 격리·폼 바깥 전송 차단). 가능하면 별도 오리진. HTML 앱도 같은 원칙(권한·CSP 는 `APP_SANDBOX`/`APP_CSP`, 테스트가 allow-same-origin 금지·form-action 'none' 을 지킨다). ponytail: allow-scripts 라 스크립트 fetch 로의 유출까지 막으려면 별도 오리진이 필요(미정) — 로그인 코드 피싱은 메일 경고로도 방어.
 - 업로드 파일은 비공개 버킷에만. `/files/…` 라우트가 가시성 검사 + DB 에 등록된 경로만 서빙. 이미지는 판별한 MIME 으로, 데모는 `text/plain` 으로 다시 저장(Storage 주소로 직접 열려도 실행 안 됨).
 - 임시 업로드 경로는 `tmp/<본인 user_id>/<uuid>` 만 받는다(남의 업로드 가로채기 방지).
 - `SUPABASE_SECRET_KEY`/`SERVICE_ROLE_KEY` 는 서버 전용. 클라이언트에는 `NEXT_PUBLIC_SUPABASE_URL`·`PUBLISHABLE_KEY` 만.
@@ -189,7 +200,7 @@ mail_log(id, kind, email, created_at)                       -- 알림 메일 발
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인), `VOYAGE_API_KEY`(선택, 의미 검색 임베딩용 Voyage — 없으면 키워드 검색). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 

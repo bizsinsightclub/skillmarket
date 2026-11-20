@@ -48,7 +48,7 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
   const editable = canEdit(viewer, skill);
   const [allVersions, snapshots, stats, basedOn, derived, review, access, owner, history] = await Promise.all([
     listVersions(db, skill.id),
-    listSnapshots(db, skill.id),
+    listSnapshots(db, skill.id, onlyApproved(viewer, skill)), // 남에게는 재승인 전 데모를 감춘다
     skillStats(db, skill.id, viewer.id),
     skill.based_on_skill_id ? getSkill(db, viewer, { id: skill.based_on_skill_id }) : undefined,
     listDerived(db, viewer, skill.id),

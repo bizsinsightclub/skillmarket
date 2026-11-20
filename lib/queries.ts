@@ -1,4 +1,5 @@
 import { one, Params, type Db } from "./db.ts";
+import { cosine } from "./embeddings.ts";
 
 // 스킬 조회는 전부 이 파일을 거친다 (CLAUDE.md "공개 범위").
 export type Viewer = { id: number; email: string; editor: boolean };
@@ -53,10 +54,19 @@ export type BoardRow = {
 
 export const PAGE_SIZE = 20;
 
+const SEM_FLOOR = 0.35; // 이 아래 유사도는 "관련 없음"으로 보고 검색 결과에서 뺀다. 튜닝 가능.
+
+// real[] 컬럼은 드라이버에 따라 number[] 또는 "{0.1,0.2}" 문자열로 올 수 있다.
+function toVec(e: unknown): number[] | null {
+  if (Array.isArray(e)) return e as number[];
+  if (typeof e === "string" && e.startsWith("{")) return e.slice(1, -1).split(",").map(Number);
+  return null;
+}
+
 export async function listBoard(
   db: Db,
   v: Viewer,
-  opts: { tab?: Tab; kind?: Kind; made?: boolean; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number } = {},
+  opts: { tab?: Tab; kind?: Kind; made?: boolean; category?: string; q?: string; sort?: Sort; page?: number; author?: string; limit?: number; queryEmbedding?: number[] | null } = {},
 ): Promise<{ rows: BoardRow[]; total: number }> {
   const p = new Params();
   const where = [visible(v, p)];
@@ -67,9 +77,46 @@ export async function listBoard(
   if (opts.made !== undefined) where.push(`${opts.made ? "" : "NOT "}${MADE}`); // true = 직접 만든 글, false = 추천한 글
   if (opts.category) where.push(`s.category = ${p.add(opts.category)}`);
   if (opts.author) where.push(`s.author_email = ${p.add(opts.author)}`);
-  if (opts.q?.trim()) {
-    const q = p.add(`%${opts.q.trim().replace(/[\\%_]/g, (c) => "\\" + c)}%`);
-    where.push(`(s.name ILIKE ${q} OR s.summary ILIKE ${q} OR s.tags ILIKE ${q})`);
+
+  const q = opts.q?.trim();
+  const semantic = !!(q && opts.queryEmbedding && opts.queryEmbedding.length);
+  const keyword = () => {
+    const like = p.add(`%${q!.replace(/[\\%_]/g, (c) => "\\" + c)}%`);
+    where.push(`(s.name ILIKE ${like} OR s.summary ILIKE ${like} OR s.tags ILIKE ${like})`);
+  };
+  if (q && !semantic) keyword(); // 임베딩 없으면(키 미설정 등) 기존 키워드 검색
+
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const limit = Math.min(PAGE_SIZE, Math.max(1, Math.floor(opts.limit ?? PAGE_SIZE)));
+
+  const cols = `s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker, s.person, s.basis, c.post_type,
+            s.visibility, (s.picked_at IS NOT NULL AND s.curated_version_id IS NOT NULL) AS picked, (s.curated_version_id IS NOT NULL) AS approved,
+            s.created_at, s.updated_at,
+            (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS likes,
+            ${installers()} AS installs,
+            ${installers("AND i.created_at > now() - interval '7 days'")}
+              + 3 * (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id AND l.created_at > now() - interval '7 days') AS trend,
+            (SELECT path FROM app.snapshots ss WHERE ss.skill_id = s.id AND ss.kind = 'image' ORDER BY ss.sort_order, ss.id LIMIT 1) AS thumb`;
+
+  // 의미 검색: 후보 전부 가져와 코사인으로 정렬(코퍼스 작아 전수 계산). 결과 없으면 키워드로 폴백.
+  if (semantic) {
+    const scored = await db.query<BoardRow & { embedding: unknown }>(
+      `SELECT ${cols}, s.embedding FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE ${where.join(" AND ")}`,
+      p.values,
+    );
+    const ranked = scored
+      .map((r) => ({ r, score: toVec(r.embedding) ? cosine(opts.queryEmbedding!, toVec(r.embedding)!) : -1 }))
+      .filter((x) => x.score >= SEM_FLOOR)
+      .sort((a, b) => b.score - a.score);
+    if (ranked.length) {
+      const rows = ranked.slice((page - 1) * limit, (page - 1) * limit + limit).map(({ r }) => {
+        const { embedding, ...rest } = r;
+        void embedding;
+        return rest as BoardRow;
+      });
+      return { rows, total: ranked.length };
+    }
+    if (q) keyword(); // 임베딩이 아직 없거나(백필 전) 관련 결과 없음 → 키워드 폴백
   }
 
   const order =
@@ -77,19 +124,10 @@ export async function listBoard(
     : opts.sort === "trending" ? "trend DESC, s.id DESC"
     : opts.sort === "picked" ? "s.picked_at DESC NULLS LAST, s.id DESC"
     : "s.id DESC";
-  const page = Math.max(1, Math.floor(opts.page ?? 1));
-  const limit = Math.min(PAGE_SIZE, Math.max(1, Math.floor(opts.limit ?? PAGE_SIZE)));
   const whereSql = where.join(" AND ");
 
   const rows = await db.query<BoardRow>(
-    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.author_name, s.author_email, s.maker, s.person, s.basis, c.post_type,
-            s.visibility, (s.picked_at IS NOT NULL AND s.curated_version_id IS NOT NULL) AS picked, (s.curated_version_id IS NOT NULL) AS approved,
-            s.created_at, s.updated_at,
-            (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS likes,
-            ${installers()} AS installs,
-            ${installers("AND i.created_at > now() - interval '7 days'")}
-              + 3 * (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id AND l.created_at > now() - interval '7 days') AS trend,
-            (SELECT path FROM app.snapshots ss WHERE ss.skill_id = s.id AND ss.kind = 'image' ORDER BY ss.sort_order, ss.id LIMIT 1) AS thumb
+    `SELECT ${cols}
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${whereSql}
      ORDER BY ${order}
@@ -98,6 +136,11 @@ export async function listBoard(
   );
   const total = await one<{ n: number }>(db, `SELECT COUNT(*)::int AS n FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE ${whereSql}`, p.values);
   return { rows, total: total!.n };
+}
+
+// 의미 검색용 임베딩 저장(없으면 null 로 비움). lib/embeddings.ts 가 만든 벡터.
+export async function setEmbedding(db: Db, skillId: number, vec: number[] | null) {
+  await db.query("UPDATE app.skills SET embedding = $2 WHERE id = $1", [skillId, vec]);
 }
 
 export async function listCategories(db: Db, kind?: Kind) {
@@ -194,8 +237,12 @@ export async function pickVersion(db: Db, v: Viewer, skill: Skill, vid: number |
 
 export type Snapshot = { id: number; kind: "image" | "demo"; path: string };
 
-export function listSnapshots(db: Db, skillId: number) {
-  return db.query<Snapshot>("SELECT id, kind, path FROM app.snapshots WHERE skill_id = $1 ORDER BY sort_order, id", [skillId]);
+// hideDemoPending = 이 글을 "남"으로 보는 사람(onlyApproved)에게는 재승인 전인 데모를 감춘다.
+export function listSnapshots(db: Db, skillId: number, hideDemoPending = false) {
+  return db.query<Snapshot>(
+    "SELECT id, kind, path FROM app.snapshots WHERE skill_id = $1 AND NOT ($2::boolean AND kind = 'demo' AND pending) ORDER BY sort_order, id",
+    [skillId, hideDemoPending],
+  );
 }
 
 export async function skillStats(db: Db, skillId: number, userId: number) {
@@ -248,10 +295,18 @@ export async function authorStats(db: Db, v: Viewer, email: string) {
 }
 
 // 검수 대기함: 요청 대기 중인 스킬 (에디터 전용 화면에서만 호출)
+// 검수 대기함: 대기함에서 바로 승인할 수 있게 최신 버전(에디터가 보고 있는 그 버전)을 같이 준다
 export function listPending(db: Db) {
-  return db.query<{ id: number; slug: string; name: string; author_name: string; updated_at: Date; visibility: string; curated_version_id: number | null }>(
-    `SELECT s.id, s.slug, s.name, s.author_name, s.updated_at, s.visibility, s.curated_version_id
-     FROM app.skills s WHERE s.curation_status = 'pending' ORDER BY s.updated_at`,
+  return db.query<{
+    id: number; slug: string; name: string; summary: string; category_label: string; maker: string; author_name: string; updated_at: Date;
+    visibility: string; curated_version_id: number | null; version_id: number; version: string; uploader: string;
+  }>(
+    `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.maker, s.author_name, s.updated_at, s.visibility, s.curated_version_id,
+            v.id AS version_id, v.version, COALESCE(NULLIF(u.name, ''), u.email) AS uploader
+     FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     JOIN LATERAL (SELECT id, version, uploaded_by FROM app.skill_versions WHERE skill_id = s.id ORDER BY id DESC LIMIT 1) v ON true
+     JOIN app.users u ON u.id = v.uploaded_by
+     WHERE s.curation_status = 'pending' ORDER BY s.updated_at`,
   );
 }
 

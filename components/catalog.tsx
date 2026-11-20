@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { PAGE_SIZE, listBoard, listCategories, type Kind, type Sort, type Tab } from "@/lib/queries";
+import { embedOne } from "@/lib/embeddings";
 import { SkillGrid } from "@/components/skill-card";
 
 const TABS: [Tab, string][] = [["all", "전체"], ["pick", "에디터 픽"]];
@@ -29,7 +30,9 @@ export default async function Catalog({ base, title, kind, onlyPicks = false, in
   const page = Math.max(1, Number(str("page")) || 1);
 
   const db = getDb();
-  const [categories, { rows, total }] = await Promise.all([listCategories(db, kind), listBoard(db, viewer, { tab, kind, sort, category, q, page })]);
+  // 검색어가 있으면 의미 검색용 임베딩을 구한다(키 없으면 null → listBoard 가 키워드로 폴백)
+  const [categories, queryEmbedding] = await Promise.all([listCategories(db, kind), q ? embedOne(q, "query") : Promise.resolve(null)]);
+  const { rows, total } = await listBoard(db, viewer, { tab, kind, sort, category, q, page, queryEmbedding });
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const href = (patch: Record<string, string | number>) => {

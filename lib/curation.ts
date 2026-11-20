@@ -19,6 +19,7 @@ export async function review(
     ]);
     if (p.decision === "approved") {
       await t.query("UPDATE app.skills SET curation_status = 'approved', curated_version_id = $1 WHERE id = $2", [p.versionId, p.skillId]);
+      await t.query("UPDATE app.snapshots SET pending = false WHERE skill_id = $1", [p.skillId]); // 에디터가 보고 승인한 데모는 공개
     } else {
       // 새 버전을 반려하면 이전 승인 버전은 그대로 공개. 지금 공개 중인 그 버전을 반려하면 승인 취소와 같다.
       await t.query(

@@ -27,7 +27,12 @@ export async function sendMail(to: string, subject: string, text: string) {
 }
 
 export function sendLoginCode(to: string, code: string) {
-  return sendMail(to, `[스킬마켓] 로그인 코드 ${code}`, `로그인 코드: ${code}\n\n10분 안에 입력하세요. 요청한 적이 없다면 이 메일을 무시하세요.`);
+  return sendMail(
+    to,
+    `[스킬마켓] 로그인 코드 ${code}`,
+    `로그인 코드: ${code}\n\n10분 안에 입력하세요. 요청한 적이 없다면 이 메일을 무시하세요.\n\n` +
+      `※ 이 코드는 스킬마켓 로그인 화면에만 입력하세요. 올라온 글·데모·앱 화면이 코드를 물어보면 입력하지 마세요(계정 도용 시도).`,
+  );
 }
 
 // 남이 나를 원작자로 적어 올렸을 때. 실패해도 업로드는 그대로(알림함에도 뜬다).

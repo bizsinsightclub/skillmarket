@@ -122,6 +122,22 @@ test("검색어의 % _ 는 문자 그대로, 대소문자 무시", async () => {
   assert.equal((await listBoard(db, other, { q: "공개" })).total, 1);
 });
 
+test("의미 검색: 임베딩 코사인으로 정렬·관련 낮으면 제외, 임베딩 없으면 키워드 폴백", async () => {
+  const db = await testDb(SEED);
+  await db.query(`INSERT INTO app.skills (id, slug, name, summary, author_name, author_email, owner_id, visibility, curation_status)
+    OVERRIDING SYSTEM VALUE VALUES (3,'deck','웹슬라이드','발표자료','A','owner@samsung.com',1,'public','approved')`);
+  await db.query(`INSERT INTO app.skill_versions (id, skill_id, version, zip_path, skill_md, uploaded_by) OVERRIDING SYSTEM VALUE VALUES (3,3,'1.0','x','x',1)`);
+  await db.query("UPDATE app.skills SET curated_version_id = 3 WHERE id = 3");
+  await db.query("UPDATE app.skills SET embedding = '{1,0}' WHERE id = 1"); // pub
+  await db.query("UPDATE app.skills SET embedding = '{0,1}' WHERE id = 3"); // deck
+
+  // 쿼리 벡터 [0,1] → deck(코사인 1)만, pub(코사인 0 < 0.35)은 제외 — '슬라이드' 글자가 없어도 의미로 잡힘
+  assert.deepEqual((await listBoard(db, other, { q: "발표자료 만들기", queryEmbedding: [0, 1] })).rows.map((r) => r.slug), ["deck"]);
+  // 임베딩이 전혀 없으면(백필 전) 키워드로 폴백
+  await db.query("UPDATE app.skills SET embedding = NULL");
+  assert.deepEqual((await listBoard(db, other, { q: "발표", queryEmbedding: [0, 1] })).rows.map((r) => r.slug), ["deck"]);
+});
+
 test("단건 조회·원작자 합계도 같은 가시성 규칙", async () => {
   const db = await testDb(SEED);
   assert.equal(await getSkill(db, other, { slug: "sec" }), undefined);

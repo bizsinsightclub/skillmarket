@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { getDb, one, type Db } from "./db";
 import { requireUser, requireViewer } from "./auth";
 import { normalizeEmail } from "./login";
-import { canEdit, getSkill, type Viewer } from "./queries";
+import { canEdit, getSkill, setEmbedding, type Viewer } from "./queries";
+import { embedOne } from "./embeddings";
 import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
@@ -245,10 +246,11 @@ async function uniqueSlug(db: Db, base: string) {
   for (let i = 2; ; i++) if (!(await taken(`${base}-${i}`))) return `${base}-${i}`;
 }
 
-async function saveSnapshots(db: Db, skillId: number, images: { ext: string; data: Uint8Array }[], demo: Uint8Array | null) {
+// demoPending = 데모를 재승인 전까지 남에게 감출지(비에디터가 공개 글의 데모를 바꾼 경우). 승인하면 review 가 푼다.
+async function saveSnapshots(db: Db, skillId: number, images: { ext: string; data: Uint8Array }[], demo: Uint8Array | null, demoPending = false) {
   let order = (await one<{ n: number }>(db, "SELECT COALESCE(MAX(sort_order), 0)::int AS n FROM app.snapshots WHERE skill_id = $1", [skillId]))!.n + 1;
-  const insert = (kind: string, path: string) =>
-    db.query("INSERT INTO app.snapshots (skill_id, kind, path, sort_order) VALUES ($1, $2, $3, $4)", [skillId, kind, path, order++]);
+  const insert = (kind: string, path: string, pending = false) =>
+    db.query("INSERT INTO app.snapshots (skill_id, kind, path, sort_order, pending) VALUES ($1, $2, $3, $4, $5)", [skillId, kind, path, order++, pending]);
   for (const img of images) {
     const path = `skills/${skillId}/snap/${crypto.randomUUID()}.${img.ext}`;
     await upload(path, img.data, img.ext === "jpg" ? "image/jpeg" : `image/${img.ext}`); // 판별한 타입으로 다시 저장
@@ -257,7 +259,7 @@ async function saveSnapshots(db: Db, skillId: number, images: { ext: string; dat
   if (demo) {
     const path = `skills/${skillId}/snap/${crypto.randomUUID()}.html`;
     await upload(path, demo, "text/plain"); // Storage 에서 직접 열려도 HTML 로 실행되지 않게. 서빙은 /files 가 격리 헤더로.
-    await insert("demo", path);
+    await insert("demo", path, demoPending);
   }
 }
 
@@ -268,6 +270,18 @@ async function saveAccess(db: Db, skillId: number, emails: string[]) {
 
 function isUniqueViolation(e: unknown) {
   return typeof e === "object" && e !== null && "code" in e && e.code === "23505";
+}
+
+// 의미 검색용 임베딩 갱신(이름+요약+설명). 외부 API 라 커밋 뒤에, 실패해도 저장은 그대로(백필로 보완).
+async function reembed(db: Db, slug: string) {
+  try {
+    const s = await one<{ id: number; name: string; summary: string; body_md: string }>(db, "SELECT id, name, summary, body_md FROM app.skills WHERE slug = $1", [slug]);
+    if (!s) return;
+    const vec = await embedOne(`${s.name}\n${s.summary}\n${s.body_md}`, "document");
+    if (vec) await setEmbedding(db, s.id, vec);
+  } catch (e) {
+    console.error("[embed] 실패", e);
+  }
 }
 
 async function editable(slug: string) {
@@ -329,7 +343,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
         await t.query("INSERT INTO app.skill_versions (skill_id, version, zip_path, skill_md, uploaded_by, changelog) VALUES ($1, $2, $3, $4, $5, $6)", [
           skillId, version, zipPath, parsed?.skillMd ?? lensFile?.text ?? "", user.id, "최초 등록",
         ]);
-        await saveSnapshots(t, skillId, images, demo);
+        await saveSnapshots(t, skillId, images, demo, !viewer.editor && meta.visibility === "public");
         await saveAccess(t, skillId, meta.access);
         if (await recordAuthor(t, { skillId, name: meta.author_name, email: meta.author_email, by: user, isLink: type === "link" || !!meta.maker })) {
           mailAuthor = { email: meta.author_email, name: meta.name };
@@ -348,6 +362,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   }
   const m = mailAuthor as { email: string; name: string } | null; // tx 콜백 안에서 채워져 TS 가 좁히지 못한다
   if (m) await sendAuthorConfirm(m.email, { skillName: m.name, uploader: user.name || user.email, slug });
+  await reembed(db, slug);
   revalidatePath("/");
   redirect(`/skills/${slug}`);
 }
@@ -393,7 +408,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
         await t.query("DELETE FROM app.snapshots WHERE id = $1", [s.id]);
         removedFiles.push(s.path);
       }
-      await saveSnapshots(t, skill.id, images, newDemo);
+      await saveSnapshots(t, skill.id, images, newDemo, !viewer.editor && m.visibility === "public");
       await saveAccess(t, skill.id, meta.access);
     });
   } catch (e) {
@@ -404,6 +419,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
   }
   await remove(removedFiles); // 커밋 후에만 파일 삭제
   if (mailAuthor) await sendAuthorConfirm(meta.author_email, { skillName: meta.name, uploader: user.name || user.email, slug });
+  await reembed(db, slug);
   revalidatePath(`/skills/${slug}`);
   redirect(`/skills/${slug}`);
 }

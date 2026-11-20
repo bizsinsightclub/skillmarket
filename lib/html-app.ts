@@ -7,6 +7,11 @@ export const MAX_APP_BYTES = 4 * 1024 * 1024;
 // 대시보드·도구가 흔히 쓰는 폼·알림창·새 창·파일 내려받기는 허용.
 export const APP_SANDBOX = "allow-scripts allow-forms allow-modals allow-popups allow-downloads";
 
+// 응답 CSP. form-action 'none' → 올린 앱이 폼을 바깥 서버로 제출하지 못한다(로그인 코드 피싱 폼 차단).
+// JS 로 처리하는 폼(preventDefault)은 그대로 — 실제 바깥 전송만 막힌다. (fetch 류 완전 차단은 별도 오리진으로 옮길 때, CLAUDE.md 미정)
+export const APP_CSP = `sandbox ${APP_SANDBOX}; form-action 'none'`;
+export const DEMO_CSP = "sandbox allow-scripts; form-action 'none'";
+
 const LOOKS_HTML = /<(!doctype\s+html|html|head|body|main|div|section|script|style|canvas|svg|table)\b/i;
 
 export function parseHtmlApp(data: Uint8Array): { text: string; title: string } {
