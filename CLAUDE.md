@@ -70,7 +70,7 @@
 플러그인·MCP 는 수가 압도적(링크형 ~109개, 대부분 오픈소스 한 바구니)이라 **분야 폴더**로 먼저 나눈다. 종류(plugin/mcp/oss = `category`)와 별개의 축.
 - 분야 = `skills.topic`(`lib/topics.ts` 의 `PLUGIN_TOPICS`: 문서·글쓰기/슬라이드·발표/데이터·분석/디자인·이미지/개발/자동화·업무/기타). **Haiku 가 이름+요약으로 분야 1개 배정**(업로드·수정 때 `retopic`, 링크형만, 실패·키없으면 'etc'). 기존 글은 1회성 백필(배치 30).
 - `/plugins`: 뷰 모드 토글 **폴더 | 유사도 지도**(`?view=map`). 폴더 = **분야 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
-- 유사도 지도 = `components/plugin-map.tsx`(SVG, 의존성 없음). **임베딩을 PCA로 2D 투영**(`pluginMap`→`pca2d`: 그람행렬 m×m + 거듭제곱법, 두 축 공통 배율이라 거리 보존) → **점 사이 거리 = 실제 의미 유사도**. 가까운 점 = 사실상 대체·중복 도구. 색=분야, 크기=좋아요(인기), 휠 줌·드래그 팬(점 크기는 화면상 고정 → 줌이 거리를 벌림). **점 클릭 = 최근접 이웃(코사인 ≥0.4, 상위 5)을 선으로 잇고 아래 패널에 '비슷한 도구' 목록** — 그게 보는 이유(중복·대체 발견). 이전 그래프(분야 허브)·RadViz 포지션맵은 '분야 소속'만 반복해 뭉쳐 폐기(2026-11-20). ponytail: PCA는 매 요청 계산(노드 ~100개라 가벼움), 수천 개로 커지면 좌표 캐시.
+- 유사도 지도 = `components/plugin-map.tsx`(SVG, 의존성 없음). **임베딩을 PCA로 2D 투영**(`pluginMap`→`pca2d`: 그람행렬 m×m + 거듭제곱법, 두 축 공통 배율이라 거리 보존) → **점 사이 거리 = 실제 의미 유사도**. 가까운 점 = 사실상 대체·중복 도구. 색=분야, 크기=좋아요(인기), 휠 줌·드래그 팬(점 크기는 화면상 고정 → 줌이 거리를 벌림). **점 클릭 = 최근접 이웃(코사인 ≥0.4, 상위 5)을 선으로 잇고 아래 패널에 '비슷한 도구' 목록** — 그게 보는 이유(중복·대체 발견). **축 이름**: PCA 축엔 원래 뜻이 없어서, 분야별 점 평균 위치(PCA 선형 → 평균점 = 분야 위치)에 옅은 큰 글씨로 영역 라벨을 찍고, 가로축 양끝·세로축 양끝(가로 양끝 분야 제외)에 가장 치우친 분야를 칩으로 붙인다(2026-11-20 실데이터: ← 디자인 ↔ 자동화 →, ↑ 데이터 ↕ 개발 ↓). 옅은 격자 + 점선 십자 = 전체 평균. 이전 그래프(분야 허브)·RadViz 포지션맵은 '분야 소속'만 반복해 뭉쳐 폐기(2026-11-20). ponytail: PCA는 매 요청 계산(노드 ~100개라 가벼움), 수천 개로 커지면 좌표 캐시.
 - ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
@@ -139,7 +139,7 @@
 - 세션: `session` 쿠키 = HMAC 서명(`AUTH_SECRET`)된 `user:<id>:<만료>`, 30일, httpOnly, sameSite=lax, https 일 때 Secure. 서버 저장 없음.
   - ponytail: 무상태 세션이라 강제 로그아웃 불가. 필요해지면 sessions 테이블로.
 - 사이트 전체 로그인 필수(`proxy.ts` 가 서명 검사 후 `/login` 으로 보냄). 앱 코드는 `lib/auth.ts` 의 `getCurrentUser()` 하나로만 사용자를 얻는다.
-- 메일 발송: Gmail SMTP(`nodemailer`, smtp.gmail.com:465 + 앱 비밀번호). `SMTP_HOST` 가 비어 있으면 로컬에선 코드를 서버 콘솔에 출력, Vercel 에선 에러.
+- 메일 발송: Gmail SMTP(`nodemailer`, smtp.gmail.com:465 + 앱 비밀번호). 발신 전용 계정 `MAIL_USER`·`MAIL_PASS` 가 있으면 그걸로 보낸다(개인 메일 숨김) — `SMTP_USER`·`SMTP_PASS` 는 브리핑 IMAP(mk 보낸편지함)이 읽는 계정이라 그대로 둔다. Gmail 은 From 을 로그인 계정으로 되돌리므로 `MAIL_FROM` 주소는 발신 계정과 같게. `SMTP_HOST` 가 비어 있으면 로컬에선 코드를 서버 콘솔에 출력, Vercel 에선 에러.
   - ponytail: 개인 Gmail 은 하루 약 500통 한도. 사용자가 늘면 자체 도메인 + Resend 로.
 - **에디터** = `EDITOR_EMAILS` 환경변수에 있는 이메일. 검수 승인·반려·에디터 픽·모든 스킬 수정/삭제 가능. ponytail: 변경 시 재시작 필요, 자주 바뀌면 users.role 컬럼으로.
 - 스킬 수정·버전 추가·공개 범위 변경: 소유자 · 에디터.
@@ -215,7 +215,7 @@ mail_log(id, kind, email, created_at)                       -- 알림 메일 발
 - `npx vercel deploy --prod`. 빌드가 먼저 `scripts/migrate.ts`(DB 마이그레이션 + 버킷 생성)를 돌린다 — advisory lock 으로 동시 빌드에도 한 번만.
 - 로컬: `npx vercel env pull` 로 `.env.local` 을 받은 뒤 `npm run dev`. **로컬도 운영과 같은 Supabase DB 를 쓴다** — 테스트 데이터는 지울 것.
   - ponytail: DB 하나를 공유. 분리가 필요해지면 Supabase 브랜치나 별도 프로젝트.
-- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인), `VOYAGE_API_KEY`(선택, 의미 검색 임베딩용 Voyage — 없으면 키워드 검색), `ANTHROPIC_API_KEY`(선택, AI 추천 챗봇 설명 + 플러그인 분야 분류용 Haiku 콘솔 크레딧 — 없으면 챗봇은 카드만·분야는 기타). 환경변수를 바꾸면 재배포해야 반영된다.
+- 환경변수: Supabase 연동이 자동으로 넣는 `POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*` + 직접 넣는 `AUTH_SECRET`(필수), `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASS`, `MAIL_USER`·`MAIL_PASS`(선택, 발신 전용 Gmail+앱 비밀번호 — 없으면 SMTP_USER 로 발신), `MAIL_FROM`(선택, 기본 `스킬마켓 <발신계정>`), `EDITOR_EMAILS`, `CRON_SECRET`(브리핑·월간 메일 Cron), `ALLOWED_EMAIL_DOMAINS`(선택), `SENSITIVE_TERMS`(선택, 업로드를 막을 광고주명 등 쉼표 구분 — 공개 저장소라 코드에 넣지 않는다), `SITE_URL`(선택, 메일 속 링크 주소 — 없으면 Vercel 운영 도메인), `VOYAGE_API_KEY`(선택, 의미 검색 임베딩용 Voyage — 없으면 키워드 검색), `ANTHROPIC_API_KEY`(선택, AI 추천 챗봇 설명 + 플러그인 분야 분류용 Haiku 콘솔 크레딧 — 없으면 챗봇은 카드만·분야는 기타). 환경변수를 바꾸면 재배포해야 반영된다.
 
 ## 폴더 구조
 

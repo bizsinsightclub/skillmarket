@@ -16,14 +16,17 @@ export async function sendMail(to: string, subject: string, text: string) {
     return;
   }
   const port = Number(process.env.SMTP_PORT || 465);
-  // Gmail: smtp.gmail.com:465 + 앱 비밀번호. 보내는 주소(MAIL_FROM)는 SMTP_USER 와 같아야 한다.
+  // Gmail: smtp.gmail.com:465 + 앱 비밀번호. 발신 전용 계정(MAIL_USER/MAIL_PASS)이 있으면 그걸로 보낸다
+  // (SMTP_USER/PASS 는 브리핑 IMAP 이 읽는 계정이라 그대로 둔다). Gmail 은 From 을 로그인 계정으로 되돌리므로 주소는 user 와 같게.
+  const user = process.env.MAIL_USER || process.env.SMTP_USER;
+  const pass = process.env.MAIL_USER ? process.env.MAIL_PASS : process.env.SMTP_PASS;
   const transport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port,
     secure: port === 465,
-    auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+    auth: user ? { user, pass } : undefined,
   });
-  await transport.sendMail({ from: process.env.MAIL_FROM || `스킬마켓 <${process.env.SMTP_USER}>`, to, subject, text });
+  await transport.sendMail({ from: process.env.MAIL_FROM || `스킬마켓 <${user}>`, to, subject, text });
 }
 
 export function sendLoginCode(to: string, code: string) {
