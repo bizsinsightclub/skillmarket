@@ -45,6 +45,22 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
     return { box: { minX, minY, w: maxX - minX, h: maxY - minY }, regions, ends };
   }, [nodes]);
 
+  // 영역 라벨 겹침 방지: 큰 분야부터 놓고, 겹치면 위·아래로 살짝 밀어 보고, 그래도 겹치면 숨김.
+  // 글자 크기가 줌에 반비례(화면상 고정)라 줌인하면 공간이 생겨 숨었던 라벨이 다시 나온다.
+  const labelFs = 6.5 / cam.s;
+  const placed = useMemo(() => {
+    const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    const out: { topic: string; x: number; y: number }[] = [];
+    for (const r of [...regions].sort((a, b) => b.n - a.n)) {
+      const w = LABEL[r.topic].length * labelFs * 0.95, h = labelFs * 1.25;
+      for (const dy of [0, -h, h, -2 * h, 2 * h]) {
+        const b = { x0: r.x - w / 2, x1: r.x + w / 2, y0: r.y + dy - h / 2, y1: r.y + dy + h / 2 };
+        if (!boxes.some((o) => b.x0 < o.x1 && o.x0 < b.x1 && b.y0 < o.y1 && o.y0 < b.y1)) { boxes.push(b); out.push({ topic: r.topic, x: r.x, y: r.y + dy }); break; }
+      }
+    }
+    return out;
+  }, [regions, labelFs]);
+
   // 커서 기준 휠 줌(네이티브 리스너라 preventDefault 가능)
   useEffect(() => {
     const svg = svgRef.current!;
@@ -99,9 +115,9 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
             {hlines.map((y) => <line key={`h${y}`} x1={gx0} y1={y} x2={gx1} y2={y} stroke="rgba(0,0,0,0.045)" strokeWidth={1} vectorEffect="non-scaling-stroke" />)}
             <line x1={gx0} y1={0} x2={gx1} y2={0} stroke="rgba(0,0,0,0.14)" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
             <line x1={0} y1={gy0} x2={0} y2={gy1} stroke="rgba(0,0,0,0.14)" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
-            {/* 분야 영역 라벨(그 분야 점들의 평균 위치) */}
-            {regions.map((r) => (
-              <text key={r.topic} x={r.x} y={r.y} textAnchor="middle" dominantBaseline="middle" fill={COLOR[r.topic]} fillOpacity={lit ? 0.12 : 0.42} fontWeight={800} style={{ fontSize: 6.5 / cam.s, pointerEvents: "none", letterSpacing: "-0.02em" }}>
+            {/* 분야 영역 라벨(그 분야 점들의 평균 위치, 겹치면 밀거나 숨김) */}
+            {placed.map((r) => (
+              <text key={r.topic} x={r.x} y={r.y} textAnchor="middle" dominantBaseline="middle" fill={COLOR[r.topic]} fillOpacity={lit ? 0.12 : 0.42} fontWeight={800} style={{ fontSize: labelFs, pointerEvents: "none", letterSpacing: "-0.02em" }}>
                 {LABEL[r.topic]}
               </text>
             ))}
@@ -153,7 +169,13 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
             <h3 className="mt-2 break-words text-lg font-extrabold leading-snug tracking-[-0.02em] text-ink">{focus.name}</h3>
             {focus.maker && <div className="mt-0.5 text-xs text-black/45">by {focus.maker}</div>}
             {focus.summary && <p className="mt-3 text-sm font-medium leading-relaxed text-ink/80">{focus.summary}</p>}
-            {focus.excerpt && focus.excerpt !== focus.summary && <p className="mt-2 line-clamp-8 text-sm leading-relaxed text-black/55">{focus.excerpt}</p>}
+            {focus.desc && (
+              <div className="mt-3 rounded-2xl bg-sky-50/70 p-3">
+                <div className="text-[10px] font-bold tracking-wide text-sky-700/70">README 요약 · AI 정리</div>
+                <p className="mt-1 text-sm leading-relaxed text-ink/75">{focus.desc}</p>
+              </div>
+            )}
+            {focus.excerpt && <p className="mt-3 line-clamp-6 text-sm leading-relaxed text-black/55">{focus.excerpt}</p>}
             {focus.pop > 0 && <div className="mt-2 text-xs text-black/40">♥ {focus.pop}</div>}
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href={`/skills/${focus.slug}`} className="rounded-xl bg-sky-600 px-3 py-1.5 text-sm font-bold text-white hover:opacity-90">자세히 보기</Link>

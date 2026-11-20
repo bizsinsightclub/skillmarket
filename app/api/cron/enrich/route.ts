@@ -3,6 +3,7 @@ import { safeEqual } from "@/lib/sign";
 import { embed } from "@/lib/embeddings";
 import { setEmbedding } from "@/lib/queries";
 import { classifyTopics } from "@/lib/topics";
+import { redescribe } from "@/lib/describe";
 
 // 정기 벡터맵 갱신: 어떤 경로(업로드·아침 브리핑 등)로 들어왔든 아직 임베딩/분야가 빈 글을 채운다.
 // Vercel Cron(vercel.json, 매일 02:00 UTC = 11:00 KST, 브리핑 1시간 뒤). proxy.ts 로그인 예외 + CRON_SECRET.
@@ -39,5 +40,12 @@ export async function GET(req: Request) {
     if (i + 30 < notopic.length) await sleep(1500);
   }
 
-  return Response.json({ embedded, classified });
+  // 3) 링크형 소개(ai_desc) NULL 채우기 — README → Haiku. 하루 25개(브리핑 하루 5~10개라 충분, 함수 300초 한도 안. 남는 건 다음 날). '' 는 근거 없음이라 다시 안 함.
+  let described = 0;
+  const nodesc = await db.query<{ id: number }>(
+    "SELECT s.id FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE c.post_type = 'link' AND s.ai_desc IS NULL ORDER BY s.id LIMIT 25",
+  );
+  for (const r of nodesc) { await redescribe(db, r.id); described++; }
+
+  return Response.json({ embedded, classified, described });
 }

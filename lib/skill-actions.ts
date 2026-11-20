@@ -11,6 +11,7 @@ import { embedOne } from "./embeddings";
 import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
 import { classifyTopic } from "./topics";
+import { redescribe } from "./describe";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
 import { MAX_APP_BYTES, parseHtmlApp } from "./html-app";
 import type { Kind } from "./queries";
@@ -285,12 +286,13 @@ async function reembed(db: Db, slug: string) {
   }
 }
 
-// 링크형(플러그인·오픈소스)만 분야 폴더를 Haiku 로 매긴다(키 없으면 'etc'). 실패해도 저장은 그대로.
+// 링크형(플러그인·오픈소스)만: 분야 폴더(Haiku, 키 없으면 'etc') + README 기반 소개(ai_desc). 실패해도 저장은 그대로(크론이 보완).
 async function retopic(db: Db, slug: string) {
   try {
     const s = await one<{ id: number; name: string; summary: string; post_type: Kind }>(db, "SELECT s.id, s.name, s.summary, c.post_type FROM app.skills s JOIN app.categories c ON c.slug = s.category WHERE s.slug = $1", [slug]);
     if (!s || s.post_type !== "link") return;
     await db.query("UPDATE app.skills SET topic = $2 WHERE id = $1", [s.id, await classifyTopic(s.name, s.summary)]);
+    await redescribe(db, s.id);
   } catch (e) {
     console.error("[topic] 실패", e);
   }

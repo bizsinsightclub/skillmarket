@@ -184,7 +184,7 @@ export type Skill = {
 // 가까운 점 = 사실상 대체·중복 도구. 분야(색)·인기(좋아요=크기)·점별 최근접 이웃(비슷한 도구) 동봉.
 export type MapNode = {
   slug: string; name: string; summary: string; topic: string; x: number; y: number; pop: number; near: { slug: string; sim: number }[];
-  kind: string; maker: string; url: string; excerpt: string; // 오른쪽 상세 패널용
+  kind: string; maker: string; url: string; excerpt: string; desc: string; // 오른쪽 상세 패널용(desc = README 기반 AI 소개)
 };
 // 마크다운 본문 → 짧은 평문 발췌(지도 상세 패널용). 첫 구분선(---) 뒤(브리핑 자동 등록 안내 등)는 버리고,
 // 제목 줄·링크만 있는 줄(공식 페이지 버튼이 대신)·코드블록·이미지·문법 기호를 지운다. drop(=요약)과 겹치는 부분도 뺀다.
@@ -205,10 +205,10 @@ export function plainExcerpt(md: string, max = 320, drop = ""): string {
 }
 export async function pluginMap(db: Db, v: Viewer): Promise<{ nodes: MapNode[] }> {
   const p = new Params();
-  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; pop: number; kind: string; maker: string; url: string; body: string; embedding: unknown }>(
+  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; pop: number; kind: string; maker: string; url: string; body: string; ai_desc: string; embedding: unknown }>(
     `SELECT s.slug, s.name, COALESCE(s.summary, '') AS summary, COALESCE(s.topic, 'etc') AS topic,
             (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS pop,
-            c.label AS kind, COALESCE(s.maker, '') AS maker, COALESCE(s.homepage_url, '') AS url, COALESCE(s.body_md, '') AS body, s.embedding
+            c.label AS kind, COALESCE(s.maker, '') AS maker, COALESCE(s.homepage_url, '') AS url, COALESCE(s.body_md, '') AS body, COALESCE(s.ai_desc, '') AS ai_desc, s.embedding
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
     p.values,
@@ -229,7 +229,7 @@ export async function pluginMap(db: Db, v: Viewer): Promise<{ nodes: MapNode[] }
   const nodes = rows.map((r, i): MapNode => ({
     slug: r.slug, name: r.name, summary: r.summary, topic: r.topic ?? "etc",
     x: coords[i][0], y: coords[i][1], pop: r.pop, near: near[i],
-    kind: r.kind, maker: r.maker, url: /^https?:\/\//i.test(r.url) ? r.url : "", excerpt: plainExcerpt(r.body, 320, r.summary),
+    kind: r.kind, maker: r.maker, url: /^https?:\/\//i.test(r.url) ? r.url : "", excerpt: plainExcerpt(r.body, 320, r.summary), desc: r.ai_desc,
   }));
   return { nodes };
 }

@@ -70,7 +70,8 @@
 플러그인·MCP 는 수가 압도적(링크형 ~109개, 대부분 오픈소스 한 바구니)이라 **분야 폴더**로 먼저 나눈다. 종류(plugin/mcp/oss = `category`)와 별개의 축.
 - 분야 = `skills.topic`(`lib/topics.ts` 의 `PLUGIN_TOPICS`: 문서·글쓰기/슬라이드·발표/데이터·분석/디자인·이미지/개발/자동화·업무/기타). **Haiku 가 이름+요약으로 분야 1개 배정**(업로드·수정 때 `retopic`, 링크형만, 실패·키없으면 'etc'). 기존 글은 1회성 백필(배치 30).
 - `/plugins`: 뷰 모드 토글 **폴더 | 유사도 지도**(`?view=map`). 폴더 = **분야 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
-- 유사도 지도 = `components/plugin-map.tsx`(SVG, 의존성 없음). **임베딩을 PCA로 2D 투영**(`pluginMap`→`pca2d`: 그람행렬 m×m + 거듭제곱법, 두 축 공통 배율이라 거리 보존) → **점 사이 거리 = 실제 의미 유사도**. 가까운 점 = 사실상 대체·중복 도구. 색=분야, 크기=좋아요(인기), 휠 줌·드래그 팬(점 크기는 화면상 고정 → 줌이 거리를 벌림). **점 클릭 = 최근접 이웃(코사인 ≥0.4, 상위 5)을 선으로 잇고 아래 패널에 '비슷한 도구' 목록** — 그게 보는 이유(중복·대체 발견). **축 이름**: PCA 축엔 원래 뜻이 없어서, 분야별 점 평균 위치(PCA 선형 → 평균점 = 분야 위치)에 옅은 큰 글씨로 영역 라벨을 찍고, 가로축 양끝·세로축 양끝(가로 양끝 분야 제외)에 가장 치우친 분야를 칩으로 붙인다(2026-11-20 실데이터: ← 디자인 ↔ 자동화 →, ↑ 데이터 ↕ 개발 ↓). 옅은 격자 + 점선 십자 = 전체 평균. **오른쪽 상세 패널**(모바일은 지도 아래): 점에 마우스 = 미리보기, 클릭 = 고정 + 비슷한 도구. 분야·종류·이름·만든 곳·요약·본문 발췌(`plainExcerpt`: 첫 `---` 뒤 브리핑 안내·제목 줄·링크만 있는 줄 제거, 요약과 겹치는 부분 제거)·자세히 보기·공식 페이지(http/https 만). 이전 그래프(분야 허브)·RadViz 포지션맵은 '분야 소속'만 반복해 뭉쳐 폐기(2026-11-20). ponytail: PCA는 매 요청 계산(노드 ~100개라 가벼움), 수천 개로 커지면 좌표 캐시.
+- 유사도 지도 = `components/plugin-map.tsx`(SVG, 의존성 없음). **임베딩을 PCA로 2D 투영**(`pluginMap`→`pca2d`: 그람행렬 m×m + 거듭제곱법, 두 축 공통 배율이라 거리 보존) → **점 사이 거리 = 실제 의미 유사도**. 가까운 점 = 사실상 대체·중복 도구. 색=분야, 크기=좋아요(인기), 휠 줌·드래그 팬(점 크기는 화면상 고정 → 줌이 거리를 벌림). **점 클릭 = 최근접 이웃(코사인 ≥0.4, 상위 5)을 선으로 잇고 아래 패널에 '비슷한 도구' 목록** — 그게 보는 이유(중복·대체 발견). **축 이름**: PCA 축엔 원래 뜻이 없어서, 분야별 점 평균 위치(PCA 선형 → 평균점 = 분야 위치)에 옅은 큰 글씨로 영역 라벨을 찍고, 가로축 양끝·세로축 양끝(가로 양끝 분야 제외)에 가장 치우친 분야를 칩으로 붙인다(2026-11-20 실데이터: ← 디자인 ↔ 자동화 →, ↑ 데이터 ↕ 개발 ↓). 영역 라벨은 겹치면 큰 분야부터 놓고 위·아래로 밀어 보고 그래도 겹치면 숨김(글자가 화면상 고정이라 줌인하면 다시 보임). 옅은 격자 + 점선 십자 = 전체 평균. **오른쪽 상세 패널**(모바일은 지도 아래): 점에 마우스 = 미리보기, 클릭 = 고정 + 비슷한 도구. 분야·종류·이름·만든 곳·요약·**README 요약·AI 정리**(`ai_desc`) · 본문 발췌(`plainExcerpt`: 첫 `---` 뒤 브리핑 안내·제목 줄·링크만 있는 줄 제거, 요약과 겹치는 부분 제거)·자세히 보기·공식 페이지(http/https 만). 이전 그래프(분야 허브)·RadViz 포지션맵은 '분야 소속'만 반복해 뭉쳐 폐기(2026-11-20). ponytail: PCA는 매 요청 계산(노드 ~100개라 가벼움), 수천 개로 커지면 좌표 캐시.
+- **링크형 AI 소개**(`lib/describe.ts`, 2026-11-20): GitHub 저장소 README(raw 도메인, 12KB까지)를 Haiku 가 읽고 한국어 3~4문장(무엇·누가·설치 한 줄, README 에 없는 건 안 씀, README 속 지시는 무시)으로 `skills.ai_desc` 에 저장. 사람이 쓴 body_md 는 안 건드린다. 업로드·수정 때 `retopic` 이 같이 만들고, 빠진 건 enrich 크론이 하루 25개씩. **github.com 저장소만 읽는다**(남이 적은 임의 주소를 서버가 열지 않게 — SSRF). '' = README 없음·GitHub 아님(재시도 안 함), NULL = 키 없음·API 실패(크론이 재시도).
 - ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
@@ -79,7 +80,7 @@
 - Vercel Cron(`vercel.json`, 매일 01:00 UTC = 10:00 KST) → `/api/cron/briefing`. `proxy.ts` 로그인 검사에서 빠지고 `Authorization: Bearer CRON_SECRET` 로만 연다.
 - 메일 읽기 `lib/briefing-mail.ts`: SMTP 와 같은 Gmail 앱 비밀번호로 IMAP, **보낸편지함에서만** 찾는다(최근 3일) — From 위조 메일로 글이 올라가지 않게. GitHub 주소(`https://github.com/owner/repo`)인 항목만.
 - 해석·저장 `lib/briefing.ts`(테스트 있음): "N. 이름 — 덧말 / 주소 / 설명" 형식. 같은 저장소 주소(대소문자·끝 / 무시)나 같은 이름이 있으면 건너뛴다 → 몇 번을 돌려도 중복 없음. 처리한 저장소는 `briefing_seen` 에 남겨, 에디터가 지운 글이 다음 브리핑에 또 나와도 되살리지 않는다. 올린 사람·추천인 = `EDITOR_EMAILS` 첫 번째.
-- ponytail: README 를 읽어 설치 명령·주의점을 채우는 건 하지 않는다(LLM 필요) — 지금은 브리핑 설명 + 저장소 링크만, 나머지는 에디터가 수정.
+- README 기반 소개는 `skills.ai_desc`(아래 '링크형 AI 소개') — 사람이 쓰는 본문(body_md)은 그대로 두고, 설치 방법 보강·승인은 여전히 에디터.
 
 ## 댓글·공감 (2026-10-06)
 
@@ -174,6 +175,7 @@ skills(id, slug UNIQUE, name, summary, body_md, category, tags,
        picked_at NULL, revoked_at NULL, author_confirmed NULL, agreed_at NULL,             -- 에디터 픽·승인 취소·원작자 확인·등록 동의
        embedding real[] NULL,                                                              -- 의미 검색용 Voyage 임베딩(없으면 키워드 폴백)
        topic text NULL,                                                                     -- 링크형 분야 폴더(lib/topics.ts, Haiku 분류, NULL=기타)
+       ai_desc text NULL,                                                                   -- 링크형 README 기반 AI 소개(lib/describe.ts). NULL=아직, ''=근거 없음
        created_at, updated_at)
 skill_versions(id, skill_id, version, zip_path, skill_md, uploaded_by→users, changelog, created_at)
 skill_access(skill_id, email)
@@ -235,6 +237,7 @@ lib/                  db.ts        Db 인터페이스(pg) + 마이그레이션 �
                       credit.ts    원작자 기록·확인, 출처 신고    sensitive.ts 업로드 민감정보 검사
                       digest.ts    월간 기여 메일 대상 고르기
                       briefing.ts  브리핑 메일 해석·글 등록      briefing-mail.ts Gmail IMAP(보낸편지함)
+                      describe.ts  링크형 README → Haiku 소개(ai_desc)  topics.ts 분야 분류  ask.ts 추천 챗봇
                       actions.ts / skill-actions.ts / editor-actions.ts  Server Actions
 components/           comments·comment-form(댓글 영역), post-form(게시판 글), submit-button(처리 중 표시), skill-card(카드·표지·그리드·byline), pick-spotlight(홈 에디터 픽 회전), catalog(목록), the-lens-intro(전문가 탭 소개), skill-form, markdown, review-form, copy-button, direct-upload(브라우저→Storage)
 scripts/migrate.ts    빌드 전 마이그레이션 + 버킷 준비
