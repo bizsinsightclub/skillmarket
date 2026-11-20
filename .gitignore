@@ -60,3 +60,6 @@ next-env.d.ts
 # 사이트 미디어는 Storage(uploads/site/)에 둔다 — 저장소에 넣지 않음
 /public/media/
 *.mp4
+
+# 스킬 구조도 작업 폴더(Claude Code 가 그리는 곳, scripts/diagram-skills.ts)
+.diagram-work/
