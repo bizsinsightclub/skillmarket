@@ -69,7 +69,8 @@
 
 플러그인·MCP 는 수가 압도적(링크형 ~109개, 대부분 오픈소스 한 바구니)이라 **분야 폴더**로 먼저 나눈다. 종류(plugin/mcp/oss = `category`)와 별개의 축.
 - 분야 = `skills.topic`(`lib/topics.ts` 의 `PLUGIN_TOPICS`: 문서·글쓰기/슬라이드·발표/데이터·분석/디자인·이미지/개발/자동화·업무/기타). **Haiku 가 이름+요약으로 분야 1개 배정**(업로드·수정 때 `retopic`, 링크형만, 실패·키없으면 'etc'). 기존 글은 1회성 백필(배치 30).
-- `/plugins`: topic·검색 없으면 **분야 폴더 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
+- `/plugins`: 뷰 모드 토글 **폴더 | 그래프**(`?view=graph`). 폴더 = **분야 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
+- 그래프(스킬트리) = `components/plugin-graph.tsx`(캔버스 포스 레이아웃, 의존성 없음). **분야 허브(큰 점) + 플러그인 노드**, 허브로 묶이고 **임베딩 유사도로 연결**(`pluginGraph`: 각 노드 상위 2개, 코사인 ≥0.45). 점 클릭=열기·드래그=옮기기·휠=줌. 옵시디언 그래프 풍.
 - ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)

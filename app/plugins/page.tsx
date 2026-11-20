@@ -1,11 +1,13 @@
 import Link from "next/link";
 import Catalog from "@/components/catalog";
+import PluginGraph from "@/components/plugin-graph";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
-import { pluginTopicCounts } from "@/lib/queries";
+import { pluginTopicCounts, pluginGraph } from "@/lib/queries";
 import { PLUGIN_TOPICS } from "@/lib/topics";
 
-// 플러그인·MCP 는 수가 압도적이라 분야 폴더로 먼저 나눈다. 분야(또는 검색) 고르면 그 리스트로 들어간다.
+// 플러그인·MCP 는 수가 압도적이라 분야로 나눈다. 뷰 모드: 폴더(분야 그리드) · 그래프(스킬트리).
+// 분야(또는 검색)를 고르면 그 리스트로 들어간다.
 export default async function PluginsPage({ searchParams }: PageProps<"/plugins">) {
   const sp = await searchParams;
   const topic = typeof sp.topic === "string" ? sp.topic : "";
@@ -22,9 +24,9 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
     );
   }
 
+  const view = sp.view === "graph" ? "graph" : "folder";
   const { viewer } = await requireViewer();
-  const counts = await pluginTopicCounts(getDb(), viewer);
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const db = getDb();
 
   return (
     <div>
@@ -32,27 +34,46 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-[-0.03em]">플러그인·MCP</h1>
-          <p className="mt-1 text-sm text-black/50">{total}개 · 분야를 골라 들어가세요</p>
+          <p className="mt-1 text-sm text-black/50">{view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : "분야를 골라 들어가세요"}</p>
         </div>
-        <Link href="/write?category=plugin" className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:opacity-90">추천하기</Link>
+        <div className="flex items-center gap-2">
+          <div className="glass flex gap-1 rounded-2xl p-1 text-sm">
+            <Link href="/plugins" className={`rounded-xl px-3 py-1.5 font-semibold ${view === "folder" ? "bg-sky-600 text-white" : "text-black/60 hover:text-ink"}`}>폴더</Link>
+            <Link href="/plugins?view=graph" className={`rounded-xl px-3 py-1.5 font-semibold ${view === "graph" ? "bg-sky-600 text-white" : "text-black/60 hover:text-ink"}`}>그래프</Link>
+          </div>
+          <Link href="/write?category=plugin" className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:opacity-90">추천하기</Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {PLUGIN_TOPICS.map((t) => {
-          const n = counts[t.slug] ?? 0;
-          return (
-            <Link key={t.slug} href={`/plugins?topic=${t.slug}`} className="panel group flex flex-col gap-3 rounded-2xl p-5 transition hover:ring-2 hover:ring-sky-300">
-              <svg aria-hidden viewBox="0 0 24 24" className="h-7 w-7 text-sky-500" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
-              </svg>
-              <span>
-                <span className="block font-bold text-ink">{t.label}</span>
-                <span className="mt-0.5 block text-sm tabular-nums text-black/45">{n}개</span>
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      {view === "graph" ? (
+        <Graph db={db} viewer={viewer} />
+      ) : (
+        <Folders db={db} viewer={viewer} />
+      )}
+    </div>
+  );
+}
+
+async function Graph({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
+  const { nodes, edges } = await pluginGraph(db, viewer);
+  return <PluginGraph nodes={nodes} edges={edges} />;
+}
+
+async function Folders({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
+  const counts = await pluginTopicCounts(db, viewer);
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {PLUGIN_TOPICS.map((t) => (
+        <Link key={t.slug} href={`/plugins?topic=${t.slug}`} className="panel group flex flex-col gap-3 rounded-2xl p-5 transition hover:ring-2 hover:ring-sky-300">
+          <svg aria-hidden viewBox="0 0 24 24" className="h-7 w-7 text-sky-500" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+          </svg>
+          <span>
+            <span className="block font-bold text-ink">{t.label}</span>
+            <span className="mt-0.5 block text-sm tabular-nums text-black/45">{counts[t.slug] ?? 0}개</span>
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

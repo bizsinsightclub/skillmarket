@@ -180,6 +180,37 @@ export type Skill = {
 };
 
 // 단건 조회도 가시성 필터를 거친다. 못 보면 undefined → 호출부에서 notFound().
+// 스킬트리(그래프) 뷰용: 보이는 링크형 노드 + 임베딩 유사도 엣지(각 노드 상위 2개, 임계 이상). 허브는 클라이언트에서 분야로 묶는다.
+export async function pluginGraph(db: Db, v: Viewer): Promise<{ nodes: { slug: string; name: string; topic: string }[]; edges: [number, number][] }> {
+  const p = new Params();
+  const rows = await db.query<{ slug: string; name: string; topic: string | null; embedding: unknown }>(
+    `SELECT s.slug, s.name, COALESCE(s.topic, 'etc') AS topic, s.embedding
+     FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
+    p.values,
+  );
+  const nodes = rows.map((r) => ({ slug: r.slug, name: r.name, topic: r.topic ?? "etc" }));
+  const vecs = rows.map((r) => toVec(r.embedding));
+  const seen = new Set<string>();
+  const edges: [number, number][] = [];
+  const FLOOR = 0.45;
+  for (let i = 0; i < vecs.length; i++) {
+    if (!vecs[i]) continue;
+    const sims: { j: number; s: number }[] = [];
+    for (let j = 0; j < vecs.length; j++) {
+      if (i === j || !vecs[j]) continue;
+      const s = cosine(vecs[i]!, vecs[j]!);
+      if (s >= FLOOR) sims.push({ j, s });
+    }
+    sims.sort((a, b) => b.s - a.s);
+    for (const { j } of sims.slice(0, 2)) {
+      const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+      if (!seen.has(key)) { seen.add(key); edges.push([Math.min(i, j), Math.max(i, j)]); }
+    }
+  }
+  return { nodes, edges };
+}
+
 // 플러그인 분야 폴더 그리드용: 보이는 링크형 글을 분야별로 센다(미분류·etc 는 'etc' 로 합산).
 export async function pluginTopicCounts(db: Db, v: Viewer): Promise<Record<string, number>> {
   const p = new Params();
