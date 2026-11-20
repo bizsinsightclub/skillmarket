@@ -3,10 +3,12 @@ import { safeEqual } from "@/lib/sign";
 import { embed } from "@/lib/embeddings";
 import { setEmbedding } from "@/lib/queries";
 import { classifyTopics } from "@/lib/topics";
-import { redescribe, makeGists, gistText } from "@/lib/describe";
+import { redescribe, makeGists, gistText, fetchStars, githubRepo } from "@/lib/describe";
+import { makeDiagram } from "@/lib/diagram";
 
 // 정기 벡터맵 갱신: 어떤 경로(업로드·아침 브리핑 등)로 들어왔든 아직 임베딩/분야가 빈 글을 채운다.
-// Vercel Cron(vercel.json, 매일 02:00 UTC = 11:00 KST, 브리핑 1시간 뒤). proxy.ts 로그인 예외 + CRON_SECRET.
+// Vercel Cron(vercel.json, 매일 04:00 UTC = 13:00 KST — 오전에 브리핑·승인된 것까지). proxy.ts 로그인 예외 + CRON_SECRET.
+// 순서: 임베딩 → 분야 → README 소개 → 핵심 한 줄 → 스타 → 구조도(남은 시간 동안). 못 끝낸 건 NULL 로 남아 다음 날.
 export const maxDuration = 300;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -14,6 +16,7 @@ export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || !safeEqual(req.headers.get("authorization") ?? "", `Bearer ${secret}`)) return new Response("unauthorized", { status: 401 });
   const db = getDb();
+  const start = Date.now();
 
   // 1) 임베딩 NULL 채우기(새 글·브리핑 등). Voyage 무료 티어(3RPM) 배려해 16개씩·사이 20초.
   let embedded = 0;
@@ -61,5 +64,29 @@ export async function GET(req: Request) {
     for (let j = 0; j < chunk.length; j++) if (gs[j]) { await db.query("UPDATE app.skills SET gist = $2 WHERE id = $1", [chunk[j].id, gs[j]]); gisted++; }
   }
 
-  return Response.json({ embedded, classified, described, gisted });
+  // 5) 링크형 GitHub 스타(유사도 지도 크기 토글) — 오래된 것부터 40개(인증 없는 API 시간당 60회).
+  let starred = 0;
+  const nostar = await db.query<{ id: number; url: string }>(
+    `SELECT s.id, COALESCE(s.homepage_url,'') AS url FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     WHERE c.post_type = 'link' AND s.homepage_url ILIKE '%github.com/%' ORDER BY s.stars_at NULLS FIRST, s.id LIMIT 40`,
+  );
+  for (const r of nostar) {
+    const repo = githubRepo(r.url);
+    const n = repo ? await fetchStars(repo) : null;
+    if (n !== null) { await db.query("UPDATE app.skills SET stars = $2, stars_at = now() WHERE id = $1", [r.id, n]); starred++; }
+  }
+
+  // 6) 승인된 스킬의 구조도(archify) + 원리 — 승인 버전에 아직 없는 것, 남은 시간 동안(한 건 1~3분).
+  const diagrams: Record<string, number> = {};
+  const nodiag = await db.query<{ id: number }>(
+    `SELECT v.id FROM app.skills s JOIN app.categories c ON c.slug = s.category JOIN app.skill_versions v ON v.id = s.curated_version_id
+     WHERE c.post_type = 'skill' AND v.diagram_path IS NULL ORDER BY v.id`,
+  );
+  for (const r of nodiag) {
+    const res = await makeDiagram(db, r.id, start + 285_000);
+    diagrams[res] = (diagrams[res] ?? 0) + 1;
+    if (res === "later") break;
+  }
+
+  return Response.json({ embedded, classified, described, gisted, starred, diagrams });
 }

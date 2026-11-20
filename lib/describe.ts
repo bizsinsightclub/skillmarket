@@ -113,3 +113,16 @@ export async function regist(db: Db, slug: string): Promise<void> {
   const [g] = await makeGists([{ name: s.name, text: gistText(s.summary, s.ai_desc) }]);
   if (g) await db.query("UPDATE app.skills SET gist = $2 WHERE id = $1", [s.id, g]);
 }
+
+// ── GitHub 스타 수(유사도 지도 '스타' 크기). 인증 없는 API 는 시간당 60회 → 크론이 하루 40개씩, GITHUB_TOKEN 이 있으면 붙인다.
+// 반환: 숫자 = 성공, null = 실패(한도·없는 저장소 → 다음에 다시)
+export async function fetchStars(repo: string): Promise<number | null> {
+  try {
+    const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "skillmarket" };
+    if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    const r = await fetch(`https://api.github.com/repos/${repo}`, { headers, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return typeof j.stargazers_count === "number" ? j.stargazers_count : null;
+  } catch { return null; }
+}

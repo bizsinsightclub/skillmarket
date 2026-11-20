@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "node --test",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.ts",
-    "scan": "node --env-file-if-exists=.env.local scripts/scan-skills.ts"
+    "scan": "node --env-file-if-exists=.env.local scripts/scan-skills.ts",
+    "diagram": "node --env-file-if-exists=.env.local scripts/diagram-skills.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",

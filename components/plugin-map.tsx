@@ -18,10 +18,16 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
   const [hover, setHover] = useState<Node | null>(null);
   const [selSlug, setSelSlug] = useState<string | null>(null);
   const [cam, setCam] = useState({ s: 1, tx: 0, ty: 0 });
+  const [sizeBy, setSizeBy] = useState<"likes" | "stars">("likes");
 
   const bySlug = useMemo(() => new Map(nodes.map((n) => [n.slug, n])), [nodes]);
   const sel = selSlug ? bySlug.get(selSlug) ?? null : null;
-  const rad = (n: Node) => 2.2 + Math.sqrt(n.pop) * 1.2; // 인기(좋아요) → 크기
+  // 크기: 좋아요(기본) 또는 GitHub 스타. 스타는 51~47만처럼 범위가 커서 '원 넓이 ∝ 스타'(반지름 ∝ √스타), 최댓값이 STAR_R.
+  const maxStars = useMemo(() => Math.max(1, ...nodes.map((n) => n.stars ?? 0)), [nodes]);
+  const STAR_R = 14;
+  const rad = (n: Node) => sizeBy === "stars"
+    ? Math.max(1.4, STAR_R * Math.sqrt((n.stars ?? 0) / maxStars))
+    : 2.2 + Math.sqrt(n.pop) * 1.2;
   const lit = useMemo(() => {
     if (!sel) return null;
     const s = new Set<string>([sel.slug]);
@@ -126,7 +132,7 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
               const b = bySlug.get(x.slug); if (!b) return null;
               return <line key={x.slug} x1={sel.x} y1={sel.y} x2={b.x} y2={b.y} stroke="#6366f1" strokeOpacity={0.25 + x.sim * 0.5} strokeWidth={1.4 / cam.s} />;
             })}
-            {nodes.map((n) => {
+            {[...nodes].sort((a, b) => rad(b) - rad(a)).map((n) => { /* 큰 원 먼저 → 작은 원이 위에 */
               const dim = lit ? !lit.has(n.slug) : false;
               const on = sel?.slug === n.slug;
               return (
@@ -147,6 +153,21 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
         {ends.right && <span className={`${axisChip} right-3 top-1/2 -translate-y-1/2`}>{LABEL[ends.right]} 쪽 →</span>}
         {ends.top && <span className={`${axisChip} left-1/2 top-3 -translate-x-1/2`}>↑ {LABEL[ends.top]} 쪽</span>}
         {ends.bottom && <span className={`${axisChip} bottom-3 left-1/2 -translate-x-1/2`}>↓ {LABEL[ends.bottom]} 쪽</span>}
+
+        {/* 크기 기준 토글 */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-2">
+          <div className="flex rounded-full bg-white/90 p-0.5 text-[11px] font-semibold ring-1 ring-black/10">
+            {([["likes", "♥ 좋아요"], ["stars", "★ 스타"]] as const).map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setSizeBy(k)} aria-pressed={sizeBy === k}
+                className={`rounded-full px-2.5 py-1 ${sizeBy === k ? "bg-ink text-white" : "text-black/55 hover:text-ink"}`}>{label}</button>
+            ))}
+          </div>
+          {sizeBy === "stars" && (
+            <span className="hidden rounded-full bg-white/80 px-2.5 py-1 text-[11px] text-black/50 ring-1 ring-black/5 sm:inline">
+              원 넓이 ∝ 스타 · 가장 큰 원 ★ {maxStars.toLocaleString("ko-KR")}
+            </span>
+          )}
+        </div>
 
         {/* 고정한 상태에서 다른 점에 올리면 이름만 살짝 */}
         {pinned && hover && hover.slug !== sel!.slug && (
@@ -176,7 +197,12 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
               </div>
             )}
             {focus.excerpt && <p className="mt-3 line-clamp-6 text-sm leading-relaxed text-black/55">{focus.excerpt}</p>}
-            {focus.pop > 0 && <div className="mt-2 text-xs text-black/40">♥ {focus.pop}</div>}
+            {(focus.pop > 0 || focus.stars !== null) && (
+              <div className="mt-2 flex gap-3 text-xs text-black/40">
+                {focus.stars !== null && <span>★ {focus.stars.toLocaleString("ko-KR")}</span>}
+                {focus.pop > 0 && <span>♥ {focus.pop}</span>}
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href={`/skills/${focus.slug}`} className="rounded-xl bg-sky-600 px-3 py-1.5 text-sm font-bold text-white hover:opacity-90">자세히 보기</Link>
               {focus.url && <a href={focus.url} target="_blank" rel="noopener noreferrer" className="rounded-xl px-3 py-1.5 text-sm font-semibold text-black/60 ring-1 ring-black/10 hover:text-ink">공식 페이지 ↗</a>}
@@ -218,7 +244,8 @@ export default function PluginMap({ nodes }: { nodes: Node[] }) {
               <li>· 가까울수록 하는 일이 비슷</li>
               <li>· 큰 글씨 = 그 분야 도구들이 모인 중심</li>
               <li>· 축 양끝 = 도구들이 가장 크게 갈리는 방향</li>
-              <li>· 점선 교차점 = 전체 평균 · 크기 = 좋아요</li>
+              <li>· 점선 교차점 = 전체 평균</li>
+              <li>· 크기 = 좋아요, 또는 ★ 토글 시 GitHub 스타(원 넓이 ∝ 스타 수)</li>
               <li>· 휠 확대 · 빈 곳 끌어 이동</li>
             </ul>
           </div>

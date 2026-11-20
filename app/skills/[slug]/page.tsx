@@ -133,6 +133,22 @@ export default async function SkillPage({ params }: PageProps<"/skills/[slug]">)
               <img src={coverUrl(skill.slug, skill.updated_at)} alt={`${skill.name} 미리보기`} className="aspect-[16/10] w-full rounded-2xl object-cover" />
             </div>
           )}
+          {/* 구조도(archify) + 원리 — 보여 주는 버전(승인본, 없으면 최신) 기준. 격리 iframe, allow-same-origin 절대 금지 */}
+          {shown.diagram_path && (
+            <div className="glass overflow-hidden rounded-3xl p-2">
+              <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="font-semibold">구조도 <span className="font-normal text-black/45">archify · {vl(shown.version)} · AI 가 스킬 파일을 읽고 그림</span></span>
+                <a href={`/skills/${skill.slug}/diagram?v=${shown.id}`} target="_blank" rel="noopener" className="whitespace-nowrap font-semibold text-black/50 hover:text-ink">새 창에서 크게 ↗</a>
+              </div>
+              <iframe src={`/skills/${skill.slug}/diagram?v=${shown.id}`} sandbox={APP_SANDBOX} className="h-[560px] w-full rounded-2xl bg-white" title={`${skill.name} 구조도`} />
+              {shown.principle && (
+                <div className="px-4 pb-3 pt-4 text-sm">
+                  <div className="mb-1 text-xs font-bold text-black/45">작동 원리</div>
+                  <Markdown>{shown.principle}</Markdown>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 오른쪽: 정보 패널 */}

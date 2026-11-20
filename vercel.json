@@ -2,7 +2,7 @@
   "regions": ["icn1"],
   "crons": [
     { "path": "/api/cron/briefing", "schedule": "0 1 * * *" },
-    { "path": "/api/cron/enrich", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/enrich", "schedule": "0 4 * * *" },
     { "path": "/api/cron/monthly", "schedule": "0 0 1-7 * *" }
   ]
 }

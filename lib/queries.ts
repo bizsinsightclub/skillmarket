@@ -183,7 +183,7 @@ export type Skill = {
 // 유사도 지도용: 보이는 링크형 글의 임베딩을 2D(PCA)로 투영 → 점 사이 거리 = 실제 의미 유사도.
 // 가까운 점 = 사실상 대체·중복 도구. 분야(색)·인기(좋아요=크기)·점별 최근접 이웃(비슷한 도구) 동봉.
 export type MapNode = {
-  slug: string; name: string; summary: string; topic: string; x: number; y: number; pop: number; near: { slug: string; sim: number }[];
+  slug: string; name: string; summary: string; topic: string; x: number; y: number; pop: number; stars: number | null; near: { slug: string; sim: number }[];
   kind: string; maker: string; url: string; excerpt: string; desc: string; // 오른쪽 상세 패널용(desc = README 기반 AI 소개)
 };
 // 마크다운 본문 → 짧은 평문 발췌(지도 상세 패널용). 첫 구분선(---) 뒤(브리핑 자동 등록 안내 등)는 버리고,
@@ -205,9 +205,9 @@ export function plainExcerpt(md: string, max = 320, drop = ""): string {
 }
 export async function pluginMap(db: Db, v: Viewer): Promise<{ nodes: MapNode[] }> {
   const p = new Params();
-  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; pop: number; kind: string; maker: string; url: string; body: string; ai_desc: string; embedding: unknown }>(
+  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; pop: number; stars: number | null; kind: string; maker: string; url: string; body: string; ai_desc: string; embedding: unknown }>(
     `SELECT s.slug, s.name, COALESCE(s.summary, '') AS summary, COALESCE(s.topic, 'etc') AS topic,
-            (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS pop,
+            (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS pop, s.stars,
             c.label AS kind, COALESCE(s.maker, '') AS maker, COALESCE(s.homepage_url, '') AS url, COALESCE(s.body_md, '') AS body, COALESCE(s.ai_desc, '') AS ai_desc, s.embedding
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
@@ -228,7 +228,7 @@ export async function pluginMap(db: Db, v: Viewer): Promise<{ nodes: MapNode[] }
   });
   const nodes = rows.map((r, i): MapNode => ({
     slug: r.slug, name: r.name, summary: r.summary, topic: r.topic ?? "etc",
-    x: coords[i][0], y: coords[i][1], pop: r.pop, near: near[i],
+    x: coords[i][0], y: coords[i][1], pop: r.pop, stars: r.stars, near: near[i],
     kind: r.kind, maker: r.maker, url: /^https?:\/\//i.test(r.url) ? r.url : "", excerpt: plainExcerpt(r.body, 320, r.summary), desc: r.ai_desc,
   }));
   return { nodes };
@@ -310,7 +310,7 @@ export function onlyApproved(v: Viewer, s: Pick<Skill, "visibility" | "post_type
   return s.visibility === "public" && s.post_type !== "link" && !v.editor && s.owner_id !== v.id && s.author_email !== v.email;
 }
 
-export type Version = { id: number; version: string; zip_path: string; skill_md: string; changelog: string; created_at: Date; uploader_name: string; uploader_email: string; approved: boolean };
+export type Version = { id: number; version: string; zip_path: string; skill_md: string; changelog: string; created_at: Date; uploader_name: string; uploader_email: string; approved: boolean; diagram_path: string | null; principle: string | null };
 
 // 승인된 버전 = 지금 승인 버전이거나, 마지막 승인 취소 뒤에 승인된 적 있는 것(검수 필수 전환 때 일괄 승인된 버전은 검수 기록이 없다). 별칭 v·s.
 const APPROVED_VERSION = `(v.id = s.curated_version_id OR EXISTS (SELECT 1 FROM app.curation_reviews r WHERE r.version_id = v.id AND r.decision = 'approved'
@@ -319,7 +319,7 @@ const APPROVED_VERSION = `(v.id = s.curated_version_id OR EXISTS (SELECT 1 FROM 
 export function listVersions(db: Db, skillId: number) {
   return db.query<Version>(
     `SELECT v.id, v.version, v.zip_path, v.skill_md, v.changelog, v.created_at, u.name AS uploader_name, u.email AS uploader_email,
-            COALESCE(${APPROVED_VERSION}, false) AS approved
+            COALESCE(${APPROVED_VERSION}, false) AS approved, v.diagram_path, v.principle
      FROM app.skill_versions v JOIN app.users u ON u.id = v.uploaded_by JOIN app.skills s ON s.id = v.skill_id
      WHERE v.skill_id = $1 ORDER BY v.id DESC`,
     [skillId],
@@ -337,9 +337,9 @@ export function versionParam(url: string) {
 // 받기·실행할 버전. vid 가 없으면 승인 버전, 그것도 없으면 최신. onlyApproved 면 승인된 버전 중에서만.
 export async function pickVersion(db: Db, v: Viewer, skill: Skill, vid: number | null) {
   if (Number.isNaN(vid)) return undefined;
-  return one<{ id: number; version: string; zip_path: string }>(
+  return one<{ id: number; version: string; zip_path: string; diagram_path: string | null }>(
     db,
-    `SELECT v.id, v.version, v.zip_path FROM app.skill_versions v JOIN app.skills s ON s.id = v.skill_id
+    `SELECT v.id, v.version, v.zip_path, v.diagram_path FROM app.skill_versions v JOIN app.skills s ON s.id = v.skill_id
      WHERE v.skill_id = $1 AND ($2::int IS NULL OR v.id = $2::int) AND (NOT $3::boolean OR COALESCE(${APPROVED_VERSION}, false))
      ORDER BY COALESCE(v.id = s.curated_version_id, false) DESC, v.id DESC LIMIT 1`,
     [skill.id, vid, onlyApproved(v, skill)],

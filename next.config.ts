@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
   // 자동 표지(/skills/[slug]/cover)가 런타임에 읽는 한글 폰트를 배포 번들에 포함
   outputFileTracingIncludes: {
     "/skills/[slug]/cover": ["./node_modules/pretendard/dist/public/static/Pretendard-{ExtraBold,Medium}.otf"],
+    // 구조도 생성(lib/diagram.ts)이 archify CLI 를 child_process 로 돌린다 → 함수 번들에 포함
+    "/api/cron/enrich": ["./vendor/archify/**/*", "./node_modules/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css", "./node_modules/pretendard/dist/web/variable/woff2-dynamic-subset/*"],
   },
 };
 
