@@ -44,7 +44,7 @@ export default function AskChat() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div ref={boxRef} className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto">
+      <div ref={boxRef} className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto">
         {msgs.length === 0 && (
           <div className="panel rounded-2xl p-5 text-sm text-black/60">
             <p className="font-semibold text-ink">무엇을 하고 싶으세요?</p>

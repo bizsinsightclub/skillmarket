@@ -61,7 +61,7 @@
 
 ### AI 추천 챗봇 (2026-11-20)
 
-"원하는 스킬 찾아주는" 추천 도우미(`/ask`, 우측 하단 플로팅 버튼 `components/ask-fab.tsx` → 로그인 시 모든 화면 고정, `components/ask-chat.tsx`). **추천만** — 실행·설치는 안 하고 링크만.
+"원하는 스킬 찾아주는" 추천 도우미(`/ask`, 우측 하단 플로팅 버튼 `components/ask-widget.tsx`(로그인 시 모든 화면 고정, 누르면 그 자리에 대화창 팝업), `components/ask-chat.tsx`). **추천만** — 실행·설치는 안 하고 링크만.
 - `lib/ask.ts`: 질문을 임베딩해 `listBoard` 의미검색 top-8(가시성 필터 그대로) → 그 **후보 메타(이름·요약)만** Haiku(`claude-haiku-5-5`)에 넘겨 왜 맞는지 한국어로 설명. 링크·카드는 코드가 슬러그로 만든다 → 모델이 스킬·URL 을 지어낼 수 없음(환각 차단). `/api/ask` 가 로그인·입력 모양 검사.
 - `ANTHROPIC_API_KEY`(콘솔 크레딧) 없으면 설명은 null → 화면은 **카드(의미 검색 결과)만**(키 없이 배포해도 안전). Haiku 호출은 fetch(새 의존성 없음), thinking 끄고 effort low.
 
@@ -97,7 +97,7 @@
    - **렌즈(전문가 탭 `/experts`)**: The Lens(`C:/pjt/magilite`)의 렌즈 `.md` 파일. 첫 펜스드 코드블록 = 시스템 프롬프트(magilite `extract_system_prompt` 와 같은 규칙), `# 역할`·`# 오퍼레이션`·`# 출력 형식` 필수(`lib/lens-file.ts`). `person`(기반 인물)·`basis`(기반 방법론) 입력, `bands`(오퍼레이션 단계)는 파일에서 추출. 버전 파일은 `.md` 로 저장·다운로드.
      - **The Lens 원칙을 따른다**: 실존 인물의 공개된 방법론을 기준으로 삼되 인물 연기 금지, 화면 표기는 '○○ 기반'(출처 표기). 초상 사진 이용 권한은 올리는 사람 책임.
      - The Lens 로 바로 설치하는 연동은 아직 없다(The Lens 에 파일 가져오기·마켓의 expert 종류 지원이 없음 — 2026-10-02 조사). 지금은 .md 다운로드·프롬프트 복사.
-     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기·가로 스크롤), 로고는 '스킬마켓' 글자만. md~xl(768~1279px)은 메뉴 아이콘만, 헤더 검색창은 1400px 부터(메뉴 5개라 그 아래선 한 줄에 안 들어감). (AI 추천은 메뉴가 아니라 우측 하단 플로팅 버튼 `components/ask-fab.tsx`, 로그인 시 모든 화면에 고정)
+     - 헤더 = `[로고 · 메뉴 상자]` ··· `[검색 · 이름 · 내정보 · 알림함 · 검수대기함(에디터만) · 올리기]`. 메뉴 상자(`components/nav-menu.tsx`)는 메뉴마다 고유 색·아이콘(스킬 라임 · 플러그인 하늘 · 전문가 퍼플 · HTML 앱 에메랄드 · AI Breakthrough 앰버). 휴대폰에선 메뉴 상자가 둘째 줄(옆으로 밀기·가로 스크롤), 로고는 '스킬마켓' 글자만. md~xl(768~1279px)은 메뉴 아이콘만, 헤더 검색창은 1400px 부터(메뉴 5개라 그 아래선 한 줄에 안 들어감). (AI 추천은 메뉴가 아니라 우측 하단 플로팅 버튼 `components/ask-widget.tsx`(누르면 그 자리에 대화창 팝업), 로그인 시 모든 화면에 고정)
      - 전문가 탭의 '렌즈 올리기' 옆(소개 영역·목록 위)에 "시스템 사용 문의는 김민석 프로에게" 안내(`Catalog` 의 `note`). 이메일은 공개 저장소라 코드에 넣지 않는다. 에디터 픽은 홈 조명이 맡아 메뉴에 없다. 페이지가 `<span hidden data-tab="/experts">` 같은 표식을 그리면 `globals.css` 의 `body:has([data-tab=…])` 규칙이 그 메뉴를 꽉 찬 색으로(JS 없음).
      - **색으로 구분**: 전문가 탭·렌즈 카드·상세는 The Lens 브랜드 퍼플(`lens`·`lens-2`·`lens-deep`·`lens-bg`·`lens-ink` 토큰, magilite `static/theme.css` 값 그대로). 다른 탭은 라임(`accent`).
      - 상단 소개(`components/the-lens-intro.tsx`) + 소개 영상은 **공개 저장소에 넣지 않는다**(사내 초안) — Storage 비공개 버킷 `uploads/site/the-lens-intro.mp4`(+ `-poster.jpg`), `/media/[name]` 라우트가 로그인 확인 후 서명 URL 로 넘긴다. 교체는 Storage 파일만 덮어쓰기.
