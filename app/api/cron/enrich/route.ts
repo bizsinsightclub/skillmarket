@@ -3,7 +3,7 @@ import { safeEqual } from "@/lib/sign";
 import { embed } from "@/lib/embeddings";
 import { setEmbedding } from "@/lib/queries";
 import { classifyTopics } from "@/lib/topics";
-import { redescribe } from "@/lib/describe";
+import { redescribe, makeGists, gistText } from "@/lib/describe";
 
 // 정기 벡터맵 갱신: 어떤 경로(업로드·아침 브리핑 등)로 들어왔든 아직 임베딩/분야가 빈 글을 채운다.
 // Vercel Cron(vercel.json, 매일 02:00 UTC = 11:00 KST, 브리핑 1시간 뒤). proxy.ts 로그인 예외 + CRON_SECRET.
@@ -47,5 +47,19 @@ export async function GET(req: Request) {
   );
   for (const r of nodesc) { await redescribe(db, r.id); described++; }
 
-  return Response.json({ embedded, classified, described });
+  // 4) 핵심 한 줄(gist) NULL 채우기 — 모든 종류, 검수 대기 글 먼저. 30개씩 한 번에, 하루 90개.
+  //    링크형은 AI 소개가 생긴 뒤(위 3번)에 만들어야 재료가 풍부하므로 ai_desc 가 아직 NULL 인 링크형은 다음 날로.
+  let gisted = 0;
+  const nogist = await db.query<{ id: number; name: string; summary: string; ai_desc: string | null }>(
+    `SELECT s.id, s.name, COALESCE(s.summary,'') AS summary, s.ai_desc FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     WHERE s.gist IS NULL AND NOT (c.post_type = 'link' AND s.ai_desc IS NULL)
+     ORDER BY (s.curation_status = 'pending') DESC, s.id LIMIT 90`,
+  );
+  for (let i = 0; i < nogist.length; i += 30) {
+    const chunk = nogist.slice(i, i + 30);
+    const gs = await makeGists(chunk.map((r) => ({ name: r.name, text: gistText(r.summary, r.ai_desc) })));
+    for (let j = 0; j < chunk.length; j++) if (gs[j]) { await db.query("UPDATE app.skills SET gist = $2 WHERE id = $1", [chunk[j].id, gs[j]]); gisted++; }
+  }
+
+  return Response.json({ embedded, classified, described, gisted });
 }

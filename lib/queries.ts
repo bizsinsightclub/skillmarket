@@ -411,12 +411,17 @@ export function listPending(db: Db) {
   return db.query<{
     id: number; slug: string; name: string; summary: string; category_label: string; maker: string; author_name: string; updated_at: Date;
     visibility: string; curated_version_id: number | null; version_id: number; version: string; uploader: string;
+    gist: string | null; ai_desc: string | null; post_type: string; homepage_url: string | null;
+    scan_score: number | null; scan_rec: string | null; scan_findings: { id: string; category: string; severity: string; file: string; line: number | null }[] | null;
   }>(
     `SELECT s.id, s.slug, s.name, s.summary, c.label AS category_label, s.maker, s.author_name, s.updated_at, s.visibility, s.curated_version_id,
-            v.id AS version_id, v.version, COALESCE(NULLIF(u.name, ''), u.email) AS uploader
+            v.id AS version_id, v.version, COALESCE(NULLIF(u.name, ''), u.email) AS uploader,
+            s.gist, NULLIF(s.ai_desc, '') AS ai_desc, c.post_type, s.homepage_url,
+            sc.score AS scan_score, sc.recommendation AS scan_rec, sc.findings AS scan_findings
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      JOIN LATERAL (SELECT id, version, uploaded_by FROM app.skill_versions WHERE skill_id = s.id ORDER BY id DESC LIMIT 1) v ON true
      JOIN app.users u ON u.id = v.uploaded_by
+     LEFT JOIN app.skill_scans sc ON sc.version_id = v.id
      WHERE s.curation_status = 'pending' ORDER BY s.updated_at`,
   );
 }

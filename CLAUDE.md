@@ -14,7 +14,7 @@
 - `/skills/[slug]` 상세 — 왼쪽 결과물 이미지·데모(크게), 오른쪽 고정 패널(배지, 이름+버전, 좋아요, 설치 명령 복사·ZIP 받기, 크레딧, 태그, 수정), 아래 설명·설치 방법·SKILL.md·큐레이션·버전 이력·파생 스킬.
 - `/write` 글쓰기(업로드) · `/skills/[slug]/edit` 수정 · `/skills/[slug]/versions/new` 새 버전.
 - `/hall` 명예의 전당(최근 30일·전체) · `/write/template` SKILL.md 양식 zip
-- `/u/[email]` 원작자 페이지(합계 + 카드, **만든 글 / 추천한 글** 탭 — 추천한 외부 플러그인·MCP·오픈소스를 만든 것처럼 보이지 않게, 합계도 만든 글만) · `/me` 내 정보(프로필 + **내 기여** 대시보드: 공개된 내 글·받아 간 사람·이번 달·써봤어요·받은 좋아요, 내 글별 상태·수치) · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수. 줄마다 승인·반려(사유)·삭제, 체크해서 한꺼번에 승인·삭제, 이름에 마우스를 올리면 요약 풍선 — 승인은 목록에 보인 최신 버전으로 고정) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
+- `/u/[email]` 원작자 페이지(합계 + 카드, **만든 글 / 추천한 글** 탭 — 추천한 외부 플러그인·MCP·오픈소스를 만든 것처럼 보이지 않게, 합계도 만든 글만) · `/me` 내 정보(프로필 + **내 기여** 대시보드: 공개된 내 글·받아 간 사람·이번 달·써봤어요·받은 좋아요, 내 글별 상태·수치) · `/login` 로그인 · `/editor` 검수 대기함(헤더 배지 = 대기 건수. **인덱스 카드** — 호버 없이 신규/재검수·분류·안전검사 배지·이름·**핵심 한 줄(gist)**·올린 사람이 바로 보이고, 긴 요약·README 요약·검사 발견은 카드의 '자세히'. 카드마다 승인·반려(사유)·삭제, 체크해서 한꺼번에 승인·삭제 — 승인은 목록에 보인 최신 버전으로 고정) · `/inbox` 알림함(내 글의 검수 결과·남의 좋아요·남의 댓글, 내 댓글에 달린 남의 답글. 별도 테이블 없이 기존 기록에서 조회, `users.inbox_seen_at` 이후 = 안 읽음).
 - `/board` **AI Breakthrough** 게시판(앰버 색) · `/board/new` 글쓰기 · `/board/[id]` 글(마크다운 본문 + 본문 이미지 + 참고 링크 + 공감 + 댓글) · `/board/[id]/edit`. 글쓴이·에디터만 수정·삭제.
   - 본문 이미지: 버튼·붙여넣기·끌어다 놓기 → 브라우저가 tmp 에 직접 올림 → `attachBoardImage` 가 바이트로 판별(png/jpg/webp/gif, 장당 5MB)해 `board/<uuid>` 로 옮기고 `post_images` 에 등록 → 커서 자리에 `![](/files/board/…)`. `/files` 는 등록된 board 경로만, 로그인한 사람 누구나. ponytail: 저장 안 한 글·지운 글의 이미지는 남는다(정리 미구현).
 - **썸네일**: 이미지를 올리지 않으면 `/skills/[slug]/cover`(next/og)가 입력한 정보(종류·이름·요약·만든 곳/기반·태그)로 그린다. `?v=updated_at` 캐시 키. 폰트는 Pretendard otf(`next.config.ts` 의 outputFileTracingIncludes). **숫자(스킬 n개 등) 넣지 않는다.**
@@ -72,6 +72,8 @@
 - `/plugins`: 뷰 모드 토글 **폴더 | 유사도 지도**(`?view=map`). 폴더 = **분야 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
 - 유사도 지도 = `components/plugin-map.tsx`(SVG, 의존성 없음). **임베딩을 PCA로 2D 투영**(`pluginMap`→`pca2d`: 그람행렬 m×m + 거듭제곱법, 두 축 공통 배율이라 거리 보존) → **점 사이 거리 = 실제 의미 유사도**. 가까운 점 = 사실상 대체·중복 도구. 색=분야, 크기=좋아요(인기), 휠 줌·드래그 팬(점 크기는 화면상 고정 → 줌이 거리를 벌림). **점 클릭 = 최근접 이웃(코사인 ≥0.4, 상위 5)을 선으로 잇고 아래 패널에 '비슷한 도구' 목록** — 그게 보는 이유(중복·대체 발견). **축 이름**: PCA 축엔 원래 뜻이 없어서, 분야별 점 평균 위치(PCA 선형 → 평균점 = 분야 위치)에 옅은 큰 글씨로 영역 라벨을 찍고, 가로축 양끝·세로축 양끝(가로 양끝 분야 제외)에 가장 치우친 분야를 칩으로 붙인다(2026-11-20 실데이터: ← 디자인 ↔ 자동화 →, ↑ 데이터 ↕ 개발 ↓). 영역 라벨은 겹치면 큰 분야부터 놓고 위·아래로 밀어 보고 그래도 겹치면 숨김(글자가 화면상 고정이라 줌인하면 다시 보임). 옅은 격자 + 점선 십자 = 전체 평균. **오른쪽 상세 패널**(모바일은 지도 아래): 점에 마우스 = 미리보기, 클릭 = 고정 + 비슷한 도구. 분야·종류·이름·만든 곳·요약·**README 요약·AI 정리**(`ai_desc`) · 본문 발췌(`plainExcerpt`: 첫 `---` 뒤 브리핑 안내·제목 줄·링크만 있는 줄 제거, 요약과 겹치는 부분 제거)·자세히 보기·공식 페이지(http/https 만). 이전 그래프(분야 허브)·RadViz 포지션맵은 '분야 소속'만 반복해 뭉쳐 폐기(2026-11-20). ponytail: PCA는 매 요청 계산(노드 ~100개라 가벼움), 수천 개로 커지면 좌표 캐시.
 - **링크형 AI 소개**(`lib/describe.ts`, 2026-11-20): GitHub 저장소 README(raw 도메인, 12KB까지)를 Haiku 가 읽고 한국어 3~4문장(무엇·누가·설치 한 줄, README 에 없는 건 안 씀, README 속 지시는 무시)으로 `skills.ai_desc` 에 저장. 사람이 쓴 body_md 는 안 건드린다. 업로드·수정 때 `retopic` 이 같이 만들고, 빠진 건 enrich 크론이 하루 25개씩. **github.com 저장소만 읽는다**(남이 적은 임의 주소를 서버가 열지 않게 — SSRF). '' = README 없음·GitHub 아님(재시도 안 함), NULL = 키 없음·API 실패(크론이 재시도).
+- **핵심 한 줄**(`skills.gist`, 2026-11-20): 모든 종류의 글에 '무엇인지' 35자 안팎 한 줄(Haiku, 이름+요약+AI 소개, 30개씩 한 번에 `makeGists`). 저장 때 `regist`, 빠진 건 enrich 크론(검수 대기 먼저, 하루 90개, 링크형은 AI 소개가 생긴 뒤).
+- **안전검사**(NVIDIA skillspector, A 방식 = 에디터 PC, 2026-11-20): 서버가 Node 라 Python 도구를 못 돌려 `npm run scan`(`scripts/scan-skills.ts`)을 에디터 PC 에서 돌린다 → 검수 대기 **스킬 zip**(Storage 에서 받아) 최신 버전을 `--no-llm` 정적 검사(링크형 저장소는 `--links` 로만 — 대부분 스킬이 아닌 앱 전체라 용량 한도·잡음, 실패는 기록 안 함, 링크형 카드엔 미검사 배지 안 붙임) → `skill_scans` 에 점수·권고(SAFE/CAUTION/DO_NOT_INSTALL/ERROR)·상위 발견 8개 → 검수 대기함 배지(미검사도 표시). `--all` 전체, `--force` 재검사. 준비: `uv tool install --python 3.13 git+https://github.com/NVIDIA/skillspector.git`. `--no-llm` 이라 파일 내용은 밖으로 안 나감(의존 패키지 이름만 OSV.dev). 렌즈·HTML 앱은 대상 아님. 한계: 한국어 지시문은 놓칠 수 있음(README 명시), 정적 검사라 노골적 유출 문구도 CAUTION 42 정도(시험). **2026-11-20 보정: 올라온 스킬 zip 4개 중 3개가 DO_NOT_INSTALL 인데 모두 정상 동작이 걸린 오탐**(research-pipeline: 공공 API 에 키를 보내는 스크립트 = TT3 CRITICAL, hyperslides: CSS 안 RA2·AE1, web-slide-deck: AE1 = '참조 파일을 다 못 봄'으로 악성 근거 아님 — 카드에 따로 표시) → **참고용, 막지 않는다**. 에디터는 발견 위치를 보고 판단. ponytail: 오탐률을 본 뒤 DO_NOT_INSTALL 은 사유 입력 후 승인(하드 게이트)으로, 자동화는 B(GitHub Actions)·C(Vercel Python).
 - ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
@@ -176,6 +178,7 @@ skills(id, slug UNIQUE, name, summary, body_md, category, tags,
        embedding real[] NULL,                                                              -- 의미 검색용 Voyage 임베딩(없으면 키워드 폴백)
        topic text NULL,                                                                     -- 링크형 분야 폴더(lib/topics.ts, Haiku 분류, NULL=기타)
        ai_desc text NULL,                                                                   -- 링크형 README 기반 AI 소개(lib/describe.ts). NULL=아직, ''=근거 없음
+       gist text NULL,                                                                      -- 핵심 한 줄(35자 안팎, Haiku, 모든 종류) — 검수 대기함 카드
        created_at, updated_at)
 skill_versions(id, skill_id, version, zip_path, skill_md, uploaded_by→users, changelog, created_at)
 skill_access(skill_id, email)
@@ -191,6 +194,7 @@ uses(user_id, skill_id, created_at)                         -- 써봤어요
 author_history(id, skill_id, author_name, author_email, changed_by→users, created_at)
 reports(id, skill_id, reporter_id, reason, created_at, resolved_at, resolved_by, resolution)  -- 출처 신고
 digest_sent(month, email, sent_at)                          -- 월간 기여 메일 보낸 기록
+skill_scans(version_id PK, score, recommendation, findings jsonb, tool_version, scanned_at)  -- NVIDIA skillspector 검사(버전별)
 mail_log(id, kind, email, created_at)                       -- 알림 메일 발송 기록(한도용, 글 삭제와 무관)
 ```
 좋아요·설치 수는 집계 쿼리. 느려지면 그때 카운터 컬럼.
@@ -249,7 +253,7 @@ db/migrations/        *.sql (Postgres, app 스키마)
 - 한국어 UI. 문구는 짧게.
 - 새 의존성 추가 전: 표준 라이브러리·Next 기본 기능·이미 있는 패키지로 되는지 먼저 확인.
 - 로직이 있는 부분(도메인 검사, 코드 검증, 서명, zip 검증, 가시성 필터, 트렌딩, 큐레이션 버전 고정)은 테스트를 남긴다. `*.test.ts` 를 `npm test`(= `node --test`, Node 24 타입 스트리핑)로 실행. DB 테스트는 `testDb()`(PGlite) — 네트워크·운영 DB 불필요. 테스트 대상 모듈은 `@/` 별칭 대신 상대경로 + `.ts` 확장자로 import.
-- 명령: `npm run dev` / `npm run build`(마이그레이션 포함) / `npm run db:migrate` / `npm test`.
+- 명령: `npm run dev` / `npm run build`(마이그레이션 포함) / `npm run db:migrate` / `npm test` / `npm run scan`(안전검사, 에디터 PC).
 
 ## 미정 사항
 

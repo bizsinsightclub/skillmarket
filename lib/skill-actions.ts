@@ -11,7 +11,7 @@ import { embedOne } from "./embeddings";
 import { MAX_ZIP_BYTES, UploadError, inFolder, installDirName, parseSkillZip, slugify, sniffImage, type ParsedSkill } from "./skill-zip";
 import { LINK_VERSION, readLinkFields } from "./link-post";
 import { classifyTopic } from "./topics";
-import { redescribe } from "./describe";
+import { redescribe, regist } from "./describe";
 import { MAX_LENS_BYTES, parseLensFile, type ParsedLens } from "./lens-file";
 import { MAX_APP_BYTES, parseHtmlApp } from "./html-app";
 import type { Kind } from "./queries";
@@ -378,6 +378,7 @@ export async function createSkill(_prev: FormState, form: FormData): Promise<For
   if (m) await sendAuthorConfirm(m.email, { skillName: m.name, uploader: user.name || user.email, slug });
   await reembed(db, slug);
   await retopic(db, slug);
+  try { await regist(db, slug); } catch (e) { console.error("[gist] 실패", e); }
   revalidatePath("/");
   redirect(`/skills/${slug}`);
 }
@@ -436,6 +437,7 @@ export async function updateSkill(slug: string, _prev: FormState, form: FormData
   if (mailAuthor) await sendAuthorConfirm(meta.author_email, { skillName: meta.name, uploader: user.name || user.email, slug });
   await reembed(db, slug);
   await retopic(db, slug);
+  try { await regist(db, slug); } catch (e) { console.error("[gist] 실패", e); }
   revalidatePath(`/skills/${slug}`);
   redirect(`/skills/${slug}`);
 }
