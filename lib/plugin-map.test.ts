@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { testDb } from "./test-db.ts";
-import { pluginMap, pca2d, type Viewer } from "./queries.ts";
+import { pluginMap, pca2d, plainExcerpt, type Viewer } from "./queries.ts";
 
 const viewer: Viewer = { id: 1, email: "owner@samsung.com", editor: false };
 const SEED = `
@@ -37,4 +37,16 @@ test("pluginMap: 보이는 링크형을 좌표+최근접 이웃으로", async ()
   assert.ok(a.near[0].sim > 0.99);
   assert.ok(!a.near.some((x) => x.slug === "c"));
   assert.ok(typeof a.x === "number" && typeof a.y === "number");
+});
+
+test("plainExcerpt: 마크다운 문법·코드블록 제거 + 길이 제한", () => {
+  const md = "# 제목\n\n- **굵게** 항목\n- [링크](https://x.y) 설명\n\n```bash\nnpm i\n```\n![img](a.png) open-source 끝";
+  assert.equal(plainExcerpt(md), "굵게 항목 링크 설명 open-source 끝"); // 제목 줄은 버림
+  assert.equal(plainExcerpt("가".repeat(400), 10), "가".repeat(10) + "…");
+});
+
+test("plainExcerpt: 브리핑 글 — 구분선 뒤·링크만 있는 줄·요약 중복 제거", () => {
+  const md = "## 소개\n\n마케팅 스킬 모음입니다.\n\n[GitHub 저장소](https://github.com/a/b)\n\n설치 후 /mk 로 부릅니다.\n\n---\n\n바이브코딩 아침 브리핑에서 자동으로 올린 글입니다.";
+  assert.equal(plainExcerpt(md, 320, "마케팅 스킬 모음입니다."), "설치 후 /mk 로 부릅니다.");
+  assert.equal(plainExcerpt(md.replace("설치 후 /mk 로 부릅니다.\n\n", ""), 320, "마케팅 스킬 모음입니다."), ""); // 요약뿐이면 빈 발췌
 });
