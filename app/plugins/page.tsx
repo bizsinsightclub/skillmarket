@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Catalog from "@/components/catalog";
 import PluginGraph from "@/components/plugin-graph";
+import PluginMatrix from "@/components/plugin-matrix";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
-import { pluginTopicCounts, pluginGraph } from "@/lib/queries";
+import { pluginTopicCounts, pluginGraph, pluginMatrix } from "@/lib/queries";
 import { PLUGIN_TOPICS } from "@/lib/topics";
 
 // 플러그인·MCP 는 수가 압도적이라 분야로 나눈다. 뷰 모드: 폴더(분야 그리드) · 그래프(스킬트리).
@@ -24,9 +25,11 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
     );
   }
 
-  const view = sp.view === "graph" ? "graph" : "folder";
+  const view = sp.view === "graph" ? "graph" : sp.view === "matrix" ? "matrix" : "folder";
+  const subtitle = view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : view === "matrix" ? "각 플러그인이 어느 분야에 가까운지 한눈에 (치트맵)" : "분야를 골라 들어가세요";
   const { viewer } = await requireViewer();
   const db = getDb();
+  const VIEWS: [string, string, string][] = [["folder", "/plugins", "폴더"], ["graph", "/plugins?view=graph", "그래프"], ["matrix", "/plugins?view=matrix", "매트릭스"]];
 
   return (
     <div>
@@ -34,24 +37,26 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-[-0.03em]">플러그인·MCP</h1>
-          <p className="mt-1 text-sm text-black/50">{view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : "분야를 골라 들어가세요"}</p>
+          <p className="mt-1 text-sm text-black/50">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="glass flex gap-1 rounded-2xl p-1 text-sm">
-            <Link href="/plugins" className={`rounded-xl px-3 py-1.5 font-semibold ${view === "folder" ? "bg-sky-600 text-white" : "text-black/60 hover:text-ink"}`}>폴더</Link>
-            <Link href="/plugins?view=graph" className={`rounded-xl px-3 py-1.5 font-semibold ${view === "graph" ? "bg-sky-600 text-white" : "text-black/60 hover:text-ink"}`}>그래프</Link>
+            {VIEWS.map(([k, href, label]) => (
+              <Link key={k} href={href} className={`rounded-xl px-3 py-1.5 font-semibold ${view === k ? "bg-sky-600 text-white" : "text-black/60 hover:text-ink"}`}>{label}</Link>
+            ))}
           </div>
           <Link href="/write?category=plugin" className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:opacity-90">추천하기</Link>
         </div>
       </div>
 
-      {view === "graph" ? (
-        <Graph db={db} viewer={viewer} />
-      ) : (
-        <Folders db={db} viewer={viewer} />
-      )}
+      {view === "graph" ? <Graph db={db} viewer={viewer} /> : view === "matrix" ? <Matrix db={db} viewer={viewer} /> : <Folders db={db} viewer={viewer} />}
     </div>
   );
+}
+
+async function Matrix({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
+  const { topics, rows } = await pluginMatrix(db, viewer);
+  return <PluginMatrix topics={topics} rows={rows} />;
 }
 
 async function Graph({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {

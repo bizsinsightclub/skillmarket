@@ -1,5 +1,6 @@
 import { one, Params, type Db } from "./db.ts";
 import { cosine } from "./embeddings.ts";
+import { PLUGIN_TOPICS } from "./topics.ts";
 
 // 스킬 조회는 전부 이 파일을 거친다 (CLAUDE.md "공개 범위").
 export type Viewer = { id: number; email: string; editor: boolean };
@@ -224,6 +225,37 @@ export async function pluginGraph(db: Db, v: Viewer): Promise<{ nodes: { slug: s
     }
   }
   return { nodes, edges };
+}
+
+// 매트릭스 치트맵용: 각 플러그인이 7개 분야 각각에 얼마나 가까운지(분야 중심벡터와의 코사인 0~1) 행렬.
+// 지정 분야(topic)로 묶어 그 분야 관련도 순 정렬 → 블록 대각선처럼 읽힌다. 셀 진하기로 '어느 영역에 가까운가'를 본다.
+export async function pluginMatrix(db: Db, v: Viewer): Promise<{ topics: { slug: string; label: string }[]; rows: { slug: string; name: string; topic: string; rels: number[] }[] }> {
+  const p = new Params();
+  const rows = await db.query<{ slug: string; name: string; topic: string | null; embedding: unknown }>(
+    `SELECT s.slug, s.name, COALESCE(s.topic, 'etc') AS topic, s.embedding
+     FROM app.skills s JOIN app.categories c ON c.slug = s.category
+     WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
+    p.values,
+  );
+  const vecs = rows.map((r) => toVec(r.embedding));
+  const sum: Record<string, number[]> = {}, cnt: Record<string, number> = {};
+  rows.forEach((r, i) => {
+    const vc = vecs[i]; if (!vc) return;
+    const t = r.topic ?? "etc";
+    if (!sum[t]) sum[t] = new Array(vc.length).fill(0);
+    for (let k = 0; k < vc.length; k++) sum[t][k] += vc[k];
+    cnt[t] = (cnt[t] ?? 0) + 1;
+  });
+  const cols = PLUGIN_TOPICS.map((c) => c.slug);
+  const centroids = cols.map((s) => (sum[s] ? sum[s].map((x) => x / cnt[s]) : null));
+  const order = Object.fromEntries(cols.map((s, i) => [s, i]));
+  const out = rows.map((r, i) => {
+    const vc = vecs[i];
+    const rels = centroids.map((c) => (vc && c ? Math.max(0, Math.min(1, cosine(vc, c))) : 0));
+    return { slug: r.slug, name: r.name, topic: r.topic ?? "etc", rels };
+  });
+  out.sort((a, b) => (order[a.topic] - order[b.topic]) || (b.rels[order[b.topic]] - a.rels[order[a.topic]]));
+  return { topics: PLUGIN_TOPICS.map((c) => ({ slug: c.slug, label: c.label })), rows: out };
 }
 
 // 플러그인 분야 폴더 그리드용: 보이는 링크형 글을 분야별로 센다(미분류·etc 는 'etc' 로 합산).
