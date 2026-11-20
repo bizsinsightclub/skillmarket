@@ -181,16 +181,31 @@ export type Skill = {
 
 // 단건 조회도 가시성 필터를 거친다. 못 보면 undefined → 호출부에서 notFound().
 // 스킬트리(그래프) 뷰용: 보이는 링크형 노드 + 임베딩 유사도 엣지(각 노드 상위 2개, 임계 이상). 허브는 클라이언트에서 분야로 묶는다.
-export async function pluginGraph(db: Db, v: Viewer): Promise<{ nodes: { slug: string; name: string; topic: string }[]; edges: [number, number][] }> {
+// rel = 그 분야 중심벡터와의 코사인(0~1) = 이 플러그인이 자기 분야에 얼마나 핵심인가. 허브 근접·점 크기·연결선 진하기로 쓴다.
+export async function pluginGraph(db: Db, v: Viewer): Promise<{ nodes: { slug: string; name: string; summary: string; topic: string; rel: number }[]; edges: [number, number][] }> {
   const p = new Params();
-  const rows = await db.query<{ slug: string; name: string; topic: string | null; embedding: unknown }>(
-    `SELECT s.slug, s.name, COALESCE(s.topic, 'etc') AS topic, s.embedding
+  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; embedding: unknown }>(
+    `SELECT s.slug, s.name, COALESCE(s.summary, '') AS summary, COALESCE(s.topic, 'etc') AS topic, s.embedding
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
     p.values,
   );
-  const nodes = rows.map((r) => ({ slug: r.slug, name: r.name, topic: r.topic ?? "etc" }));
   const vecs = rows.map((r) => toVec(r.embedding));
+  // 분야 중심벡터
+  const sum: Record<string, number[]> = {}, cnt: Record<string, number> = {};
+  rows.forEach((r, i) => {
+    const vc = vecs[i]; if (!vc) return;
+    const t = r.topic ?? "etc";
+    if (!sum[t]) sum[t] = new Array(vc.length).fill(0);
+    for (let k = 0; k < vc.length; k++) sum[t][k] += vc[k];
+    cnt[t] = (cnt[t] ?? 0) + 1;
+  });
+  const nodes = rows.map((r, i) => {
+    const t = r.topic ?? "etc";
+    const c = sum[t] ? sum[t].map((x) => x / cnt[t]) : null;
+    const rel = vecs[i] && c ? Math.max(0, Math.min(1, cosine(vecs[i]!, c))) : 0;
+    return { slug: r.slug, name: r.name, summary: r.summary, topic: t, rel };
+  });
   const seen = new Set<string>();
   const edges: [number, number][] = [];
   const FLOOR = 0.45;

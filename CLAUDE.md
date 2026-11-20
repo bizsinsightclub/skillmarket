@@ -56,7 +56,7 @@
 - 임베딩 = **Voyage**(`lib/embeddings.ts`, `voyage-3.5` 1024차원). Anthropic 은 임베딩 API 가 없어 Voyage(Anthropic 공식 추천). 분류·트리아지용 LLM 은 별개(Anthropic Haiku 예정).
 - `VOYAGE_API_KEY` 없으면 임베딩이 null → **기존 키워드(ILIKE) 검색으로 자동 폴백**(키 없이 배포해도 안전). 검색어가 있을 때 `components/catalog.tsx` 가 쿼리를 임베딩해 `listBoard({ queryEmbedding })` 로 넘긴다.
 - 벡터는 `skills.embedding real[]` 에 저장(pgvector 안 씀 — PGlite 테스트 호환·코퍼스 작음). `listBoard` 가 후보 전수 코사인으로 정렬, 유사도 `SEM_FLOOR(0.35)` 미만은 제외, 관련 결과 없으면 키워드 폴백. **ponytail: 수천 개로 커지면 pgvector + hnsw 로.**
-- 업로드·수정 때 `reembed`(이름+요약+설명)로 저장(외부 API, 커밋 뒤·실패해도 저장은 그대로). 기존 글 백필은 `scripts` 외 1회성(배치 64개씩 Voyage).
+- 업로드·수정 때 `reembed`(이름+요약+설명)로 저장(외부 API, 커밋 뒤·실패해도 저장은 그대로). **아침 브리핑처럼 다른 경로로 들어온 글**은 정기 크론 `/api/cron/enrich`(매일 02:00 UTC=11:00 KST, 브리핑 1시간 뒤)가 임베딩 NULL·분야 NULL 을 채운다(Voyage 16개씩·3RPM 배려, Haiku 분류 30개씩). 즉 벡터맵은 자동으로 최신 유지.
 - ponytail: 링크형 안전검사(skillspector)는 같은 '올릴 때 AI 보강' 훅을 공유 — 다음 차례.
 
 ### AI 추천 챗봇 (2026-11-20)
@@ -70,7 +70,7 @@
 플러그인·MCP 는 수가 압도적(링크형 ~109개, 대부분 오픈소스 한 바구니)이라 **분야 폴더**로 먼저 나눈다. 종류(plugin/mcp/oss = `category`)와 별개의 축.
 - 분야 = `skills.topic`(`lib/topics.ts` 의 `PLUGIN_TOPICS`: 문서·글쓰기/슬라이드·발표/데이터·분석/디자인·이미지/개발/자동화·업무/기타). **Haiku 가 이름+요약으로 분야 1개 배정**(업로드·수정 때 `retopic`, 링크형만, 실패·키없으면 'etc'). 기존 글은 1회성 백필(배치 30).
 - `/plugins`: 뷰 모드 토글 **폴더 | 그래프**(`?view=graph`). 폴더 = **분야 그리드**(`pluginTopicCounts`), 폴더 클릭 → `/plugins?topic=dev` = 그 분야 리스트(기존 `Catalog`, topic 필터) + "← 분야 전체". `listBoard({ topic })`, etc 는 미분류(NULL)도 포함.
-- 그래프(스킬트리) = `components/plugin-graph.tsx`(캔버스 포스 레이아웃, 의존성 없음). **분야 허브(큰 점) + 플러그인 노드**, 허브로 묶이고 **임베딩 유사도로 연결**(`pluginGraph`: 각 노드 상위 2개, 코사인 ≥0.45). 점 클릭=열기·드래그=옮기기·휠=줌. 옵시디언 그래프 풍.
+- 그래프(스킬트리) = `components/plugin-graph.tsx`(캔버스 포스 레이아웃, 의존성 없음). **분야 허브(큰 점) + 플러그인 노드**, 허브로 묶이고 **임베딩 유사도로 연결**(`pluginGraph`: 각 노드 상위 2개, 코사인 ≥0.45, 유사도선은 옅게). **관련도 rel** = 분야 중심벡터와의 코사인(0~1) → 핵심일수록 허브에 바짝·점 크게·허브선 진하게. 호버=요약+관련도%, 점 클릭=열기·드래그=옮기기·휠=줌. 옵시디언 그래프 풍.
 - ponytail: 분야는 스킬 `category` 와 축이 다르므로 별도 컬럼. 종류 칩(plugin/mcp/oss)은 분야 안에서 2차 필터로 그대로.
 
 ## 바이브코딩 아침 브리핑 자동 등록 (2026-10-06)
