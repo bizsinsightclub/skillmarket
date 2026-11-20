@@ -1,10 +1,9 @@
 import Link from "next/link";
 import Catalog from "@/components/catalog";
-import PluginGraph from "@/components/plugin-graph";
-import PluginPositions from "@/components/plugin-positions";
+import PluginMap from "@/components/plugin-map";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
-import { pluginTopicCounts, pluginGraph, pluginMatrix } from "@/lib/queries";
+import { pluginTopicCounts, pluginMap } from "@/lib/queries";
 import { PLUGIN_TOPICS } from "@/lib/topics";
 
 // 플러그인·MCP 는 수가 압도적이라 분야로 나눈다. 뷰 모드: 폴더(분야 그리드) · 그래프(스킬트리).
@@ -25,11 +24,11 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
     );
   }
 
-  const view = sp.view === "graph" ? "graph" : sp.view === "map" ? "map" : "folder";
-  const subtitle = view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : view === "map" ? "분야 사이 어디에 있는지 — 포지셔닝 맵" : "분야를 골라 들어가세요";
+  const view = sp.view === "map" ? "map" : "folder";
+  const subtitle = view === "map" ? "거리 = 실제 유사도 · 가까운 점은 비슷한 도구 (점을 눌러 보세요)" : "분야를 골라 들어가세요";
   const { viewer } = await requireViewer();
   const db = getDb();
-  const VIEWS: [string, string, string][] = [["folder", "/plugins", "폴더"], ["graph", "/plugins?view=graph", "그래프"], ["map", "/plugins?view=map", "포지션맵"]];
+  const VIEWS: [string, string, string][] = [["folder", "/plugins", "폴더"], ["map", "/plugins?view=map", "유사도 지도"]];
 
   return (
     <div>
@@ -49,19 +48,14 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
         </div>
       </div>
 
-      {view === "graph" ? <Graph db={db} viewer={viewer} /> : view === "map" ? <Positions db={db} viewer={viewer} /> : <Folders db={db} viewer={viewer} />}
+      {view === "map" ? <MapView db={db} viewer={viewer} /> : <Folders db={db} viewer={viewer} />}
     </div>
   );
 }
 
-async function Positions({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
-  const { topics, rows } = await pluginMatrix(db, viewer);
-  return <PluginPositions topics={topics} rows={rows} />;
-}
-
-async function Graph({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
-  const { nodes, edges } = await pluginGraph(db, viewer);
-  return <PluginGraph nodes={nodes} edges={edges} />;
+async function MapView({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
+  const { nodes } = await pluginMap(db, viewer);
+  return <PluginMap nodes={nodes} />;
 }
 
 async function Folders({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {

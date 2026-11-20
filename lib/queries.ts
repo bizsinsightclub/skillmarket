@@ -1,6 +1,5 @@
 import { one, Params, type Db } from "./db.ts";
 import { cosine } from "./embeddings.ts";
-import { PLUGIN_TOPICS } from "./topics.ts";
 
 // 스킬 조회는 전부 이 파일을 거친다 (CLAUDE.md "공개 범위").
 export type Viewer = { id: number; email: string; editor: boolean };
@@ -181,81 +180,76 @@ export type Skill = {
 };
 
 // 단건 조회도 가시성 필터를 거친다. 못 보면 undefined → 호출부에서 notFound().
-// 스킬트리(그래프) 뷰용: 보이는 링크형 노드 + 임베딩 유사도 엣지(각 노드 상위 2개, 임계 이상). 허브는 클라이언트에서 분야로 묶는다.
-// rel = 그 분야 중심벡터와의 코사인(0~1) = 이 플러그인이 자기 분야에 얼마나 핵심인가. 허브 근접·점 크기·연결선 진하기로 쓴다.
-export async function pluginGraph(db: Db, v: Viewer): Promise<{ nodes: { slug: string; name: string; summary: string; topic: string; rel: number }[]; edges: [number, number][] }> {
+// 유사도 지도용: 보이는 링크형 글의 임베딩을 2D(PCA)로 투영 → 점 사이 거리 = 실제 의미 유사도.
+// 가까운 점 = 사실상 대체·중복 도구. 분야(색)·인기(좋아요=크기)·점별 최근접 이웃(비슷한 도구) 동봉.
+export type MapNode = { slug: string; name: string; summary: string; topic: string; x: number; y: number; pop: number; near: { slug: string; sim: number }[] };
+export async function pluginMap(db: Db, v: Viewer): Promise<{ nodes: MapNode[] }> {
   const p = new Params();
-  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; embedding: unknown }>(
-    `SELECT s.slug, s.name, COALESCE(s.summary, '') AS summary, COALESCE(s.topic, 'etc') AS topic, s.embedding
+  const rows = await db.query<{ slug: string; name: string; summary: string; topic: string | null; pop: number; embedding: unknown }>(
+    `SELECT s.slug, s.name, COALESCE(s.summary, '') AS summary, COALESCE(s.topic, 'etc') AS topic,
+            (SELECT COUNT(*)::int FROM app.likes l WHERE l.skill_id = s.id) AS pop, s.embedding
      FROM app.skills s JOIN app.categories c ON c.slug = s.category
      WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
     p.values,
   );
   const vecs = rows.map((r) => toVec(r.embedding));
-  // 분야 중심벡터
-  const sum: Record<string, number[]> = {}, cnt: Record<string, number> = {};
-  rows.forEach((r, i) => {
-    const vc = vecs[i]; if (!vc) return;
-    const t = r.topic ?? "etc";
-    if (!sum[t]) sum[t] = new Array(vc.length).fill(0);
-    for (let k = 0; k < vc.length; k++) sum[t][k] += vc[k];
-    cnt[t] = (cnt[t] ?? 0) + 1;
-  });
-  const nodes = rows.map((r, i) => {
-    const t = r.topic ?? "etc";
-    const c = sum[t] ? sum[t].map((x) => x / cnt[t]) : null;
-    const rel = vecs[i] && c ? Math.max(0, Math.min(1, cosine(vecs[i]!, c))) : 0;
-    return { slug: r.slug, name: r.name, summary: r.summary, topic: t, rel };
-  });
-  const seen = new Set<string>();
-  const edges: [number, number][] = [];
-  const FLOOR = 0.45;
-  for (let i = 0; i < vecs.length; i++) {
-    if (!vecs[i]) continue;
-    const sims: { j: number; s: number }[] = [];
-    for (let j = 0; j < vecs.length; j++) {
+  const coords = pca2d(vecs); // rows 정렬 그대로, 임베딩 없는 점은 [0,0]
+  const near = rows.map((_, i) => {
+    const vi = vecs[i]; if (!vi) return [] as { slug: string; sim: number }[];
+    const sims: { slug: string; sim: number }[] = [];
+    for (let j = 0; j < rows.length; j++) {
       if (i === j || !vecs[j]) continue;
-      const s = cosine(vecs[i]!, vecs[j]!);
-      if (s >= FLOOR) sims.push({ j, s });
+      const s = cosine(vi, vecs[j]!);
+      if (s >= 0.4) sims.push({ slug: rows[j].slug, sim: Math.round(s * 100) / 100 });
     }
-    sims.sort((a, b) => b.s - a.s);
-    for (const { j } of sims.slice(0, 2)) {
-      const key = i < j ? `${i}-${j}` : `${j}-${i}`;
-      if (!seen.has(key)) { seen.add(key); edges.push([Math.min(i, j), Math.max(i, j)]); }
-    }
-  }
-  return { nodes, edges };
+    sims.sort((a, b) => b.sim - a.sim);
+    return sims.slice(0, 5);
+  });
+  const nodes = rows.map((r, i): MapNode => ({
+    slug: r.slug, name: r.name, summary: r.summary, topic: r.topic ?? "etc",
+    x: coords[i][0], y: coords[i][1], pop: r.pop, near: near[i],
+  }));
+  return { nodes };
 }
 
-// 매트릭스 치트맵용: 각 플러그인이 7개 분야 각각에 얼마나 가까운지(분야 중심벡터와의 코사인 0~1) 행렬.
-// 지정 분야(topic)로 묶어 그 분야 관련도 순 정렬 → 블록 대각선처럼 읽힌다. 셀 진하기로 '어느 영역에 가까운가'를 본다.
-export async function pluginMatrix(db: Db, v: Viewer): Promise<{ topics: { slug: string; label: string }[]; rows: { slug: string; name: string; topic: string; rels: number[] }[] }> {
-  const p = new Params();
-  const rows = await db.query<{ slug: string; name: string; topic: string | null; embedding: unknown }>(
-    `SELECT s.slug, s.name, COALESCE(s.topic, 'etc') AS topic, s.embedding
-     FROM app.skills s JOIN app.categories c ON c.slug = s.category
-     WHERE ${visible(v, p)} AND c.post_type = 'link' ORDER BY s.id`,
-    p.values,
-  );
-  const vecs = rows.map((r) => toVec(r.embedding));
-  const sum: Record<string, number[]> = {}, cnt: Record<string, number> = {};
-  rows.forEach((r, i) => {
-    const vc = vecs[i]; if (!vc) return;
-    const t = r.topic ?? "etc";
-    if (!sum[t]) sum[t] = new Array(vc.length).fill(0);
-    for (let k = 0; k < vc.length; k++) sum[t][k] += vc[k];
-    cnt[t] = (cnt[t] ?? 0) + 1;
-  });
-  const cols = PLUGIN_TOPICS.map((c) => c.slug);
-  const centroids = cols.map((s) => (sum[s] ? sum[s].map((x) => x / cnt[s]) : null));
-  const order = Object.fromEntries(cols.map((s, i) => [s, i]));
-  const out = rows.map((r, i) => {
-    const vc = vecs[i];
-    const rels = centroids.map((c) => (vc && c ? Math.max(0, Math.min(1, cosine(vc, c))) : 0));
-    return { slug: r.slug, name: r.name, topic: r.topic ?? "etc", rels };
-  });
-  out.sort((a, b) => (order[a.topic] - order[b.topic]) || (b.rels[order[b.topic]] - a.rels[order[a.topic]]));
-  return { topics: PLUGIN_TOPICS.map((c) => ({ slug: c.slug, label: c.label })), rows: out };
+// n개 d차원 벡터를 2D 로 투영(PCA, 그람행렬 m×m + 거듭제곱법). 두 축 공통 배율이라 점 사이 거리가 보존된다.
+export function pca2d(vecs: (number[] | null)[]): [number, number][] {
+  const out: [number, number][] = vecs.map(() => [0, 0] as [number, number]);
+  const idx = vecs.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  if (idx.length < 2) return out;
+  const d = vecs[idx[0]]!.length;
+  const mean = new Array(d).fill(0);
+  for (const i of idx) { const v = vecs[i]!; for (let k = 0; k < d; k++) mean[k] += v[k]; }
+  for (let k = 0; k < d; k++) mean[k] /= idx.length;
+  const X = idx.map((i) => vecs[i]!.map((val, k) => val - mean[k])); // m×d 중심화
+  const m = X.length;
+  const G: number[][] = Array.from({ length: m }, () => new Array(m).fill(0));
+  for (let a = 0; a < m; a++) for (let b = a; b < m; b++) {
+    let s = 0; for (let k = 0; k < d; k++) s += X[a][k] * X[b][k];
+    G[a][b] = s; G[b][a] = s;
+  }
+  const top = (M: number[][]) => { // 거듭제곱법 상위 고유쌍(G 는 PSD → 고유값 ≥0)
+    let u = new Array(m).fill(0).map((_, i) => Math.sin(i + 1)); // 결정적 시드
+    let lam = 0;
+    for (let it = 0; it < 60; it++) {
+      const w = new Array(m).fill(0);
+      for (let a = 0; a < m; a++) { let s = 0; for (let b = 0; b < m; b++) s += M[a][b] * u[b]; w[a] = s; }
+      const norm = Math.hypot(...w) || 1;
+      for (let a = 0; a < m; a++) w[a] /= norm;
+      u = w; lam = norm;
+    }
+    return { u, lam };
+  };
+  const e1 = top(G);
+  const G2 = G.map((row, a) => row.map((val, b) => val - e1.lam * e1.u[a] * e1.u[b])); // 디플레이션
+  const e2 = top(G2);
+  const c1 = e1.u.map((x) => x * Math.sqrt(Math.max(0, e1.lam))); // PCA 점수 = 고유벡터 × √고유값
+  const c2 = e2.u.map((x) => x * Math.sqrt(Math.max(0, e2.lam)));
+  let maxAbs = 1e-9;
+  for (let a = 0; a < m; a++) maxAbs = Math.max(maxAbs, Math.abs(c1[a]), Math.abs(c2[a]));
+  const scale = 100 / maxAbs; // 공통 배율 → 거리 왜곡 없음
+  idx.forEach((i, a) => { out[i] = [c1[a] * scale, c2[a] * scale]; });
+  return out;
 }
 
 // 플러그인 분야 폴더 그리드용: 보이는 링크형 글을 분야별로 센다(미분류·etc 는 'etc' 로 합산).
