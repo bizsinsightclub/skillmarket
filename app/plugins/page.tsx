@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Catalog from "@/components/catalog";
 import PluginGraph from "@/components/plugin-graph";
-import PluginMatrix from "@/components/plugin-matrix";
+import PluginPositions from "@/components/plugin-positions";
 import { getDb } from "@/lib/db";
 import { requireViewer } from "@/lib/auth";
 import { pluginTopicCounts, pluginGraph, pluginMatrix } from "@/lib/queries";
@@ -25,11 +25,11 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
     );
   }
 
-  const view = sp.view === "graph" ? "graph" : sp.view === "matrix" ? "matrix" : "folder";
-  const subtitle = view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : view === "matrix" ? "각 플러그인이 어느 분야에 가까운지 한눈에 (치트맵)" : "분야를 골라 들어가세요";
+  const view = sp.view === "graph" ? "graph" : sp.view === "map" ? "map" : "folder";
+  const subtitle = view === "graph" ? "분야 허브로 묶인 스킬트리 — 비슷한 것끼리 연결" : view === "map" ? "분야 사이 어디에 있는지 — 포지셔닝 맵" : "분야를 골라 들어가세요";
   const { viewer } = await requireViewer();
   const db = getDb();
-  const VIEWS: [string, string, string][] = [["folder", "/plugins", "폴더"], ["graph", "/plugins?view=graph", "그래프"], ["matrix", "/plugins?view=matrix", "매트릭스"]];
+  const VIEWS: [string, string, string][] = [["folder", "/plugins", "폴더"], ["graph", "/plugins?view=graph", "그래프"], ["map", "/plugins?view=map", "포지션맵"]];
 
   return (
     <div>
@@ -49,14 +49,14 @@ export default async function PluginsPage({ searchParams }: PageProps<"/plugins"
         </div>
       </div>
 
-      {view === "graph" ? <Graph db={db} viewer={viewer} /> : view === "matrix" ? <Matrix db={db} viewer={viewer} /> : <Folders db={db} viewer={viewer} />}
+      {view === "graph" ? <Graph db={db} viewer={viewer} /> : view === "map" ? <Positions db={db} viewer={viewer} /> : <Folders db={db} viewer={viewer} />}
     </div>
   );
 }
 
-async function Matrix({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
+async function Positions({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
   const { topics, rows } = await pluginMatrix(db, viewer);
-  return <PluginMatrix topics={topics} rows={rows} />;
+  return <PluginPositions topics={topics} rows={rows} />;
 }
 
 async function Graph({ db, viewer }: { db: ReturnType<typeof getDb>; viewer: Awaited<ReturnType<typeof requireViewer>>["viewer"] }) {
