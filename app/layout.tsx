@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { countPending, unreadNotices } from "@/lib/queries";
 import CheilLogo from "@/components/cheil-logo";
 import NavMenu from "@/components/nav-menu";
+import AskFab from "@/components/ask-fab";
 
 export const metadata: Metadata = {
   title: "스킬마켓",
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </nav>
           </header>
         )}
+        {user && <AskFab />}
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-10 sm:px-8">{children}</main>
         <footer className="mx-auto w-full max-w-[1400px] px-4 pb-10 text-xs text-black/40 sm:px-8">
           스킬마켓 · 사내 Claude 스킬 공유 · 서체 Pretendard (SIL OFL)
